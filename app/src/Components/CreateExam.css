@@ -1,0 +1,36 @@
+/* src/CreateExam.css */
+.dropzone {
+    border: 2px dashed #b22222;
+    border-radius: 5px;
+    padding: 40px;
+    text-align: center;
+    color: #b22222;
+    cursor: pointer;
+    margin-bottom: 20px;
+    position: relative;
+  }
+  
+  .dropzone input[type='file'] {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+  }
+  
+  .upload-button {
+    padding: 10px 20px;
+    background-color: #b22222;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  
+  .upload-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+  }
+  

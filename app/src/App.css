@@ -1,0 +1,103 @@
+/* src/App.css */
+.app-container {
+  display: flex;
+  font-family: Arial, sans-serif;
+}
+
+.sidebar {
+  width: 250px;
+  background-color: #b22222; /* Firebrick red */
+  color: #fff;
+  padding: 20px;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+.sidebar h2 {
+  margin-top: 0;
+  border-bottom: 1px solid #fff;
+  padding-bottom: 10px;
+}
+
+.sidebar ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.sidebar ul li {
+  padding: 12px 0;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.sidebar ul li:hover {
+  background-color: #8b1a1a; /* Darker red */
+}
+
+.exam-content {
+  flex-grow: 1;
+  padding: 40px;
+  background-color: #f8f8f8;
+  box-sizing: border-box;
+}
+
+.exam-content h1 {
+  color: #b22222;
+}
+
+.question {
+  background-color: #fff;
+  padding: 20px;
+  margin-bottom: 25px;
+  border-radius: 5px;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.05);
+}
+
+.question p {
+  margin-top: 0;
+}
+
+.option {
+  margin-left: 20px;
+  margin-top: 10px;
+}
+
+.option label {
+  margin-left: 8px;
+  cursor: pointer;
+}
+
+input[type="radio"] {
+  accent-color: #b22222;
+}
+
+/* Add these styles to src/App.css */
+
+.create-button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 20px;
+  background-color: #fff;
+  color: #b22222;
+  border: none;
+  cursor: pointer;
+  text-align: center;
+  font-size: 16px;
+}
+
+.create-button a {
+  color: #b22222;
+  text-decoration: none;
+}
+
+.create-button:hover {
+  background-color: #f0f0f0;
+}
+
+/* Add to src/App.css */
+
+.option textarea {
+  width: 100%;
+  padding: 10px;
+  font-size: 16px;
+}
