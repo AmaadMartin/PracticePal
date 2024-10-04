@@ -3,3 +3,4 @@ files/*
 !files/.gitkeep
 __pycache__
 api/.env
+app/.env
