@@ -57,7 +57,7 @@ function Exam({ selectedExam, examQuestions, exams, username }) {
     setResult(null); // Reset previous result
 
     try {
-      const response = await fetch("http://localhost:8000/grade_quiz", {
+      const response = await fetch("https://practicepal.onrender.com/grade_quiz", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

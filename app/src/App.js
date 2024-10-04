@@ -25,7 +25,7 @@ function App() {
 
   const fetchUserExams = async (username) => {
     try {
-      const response = await fetch(`http://localhost:8000/users/${username}`);
+      const response = await fetch(`https://practicepal.onrender.com/users/${username}`);
       if (!response.ok) {
         throw new Error('Failed to fetch user data');
       }
