@@ -10,6 +10,8 @@ import Signup from './Components/Signup';
 import PaymentSuccess from './Components/PaymentSuccess';
 import './App.css';
 
+
+
 function App() {
   const [selectedExam, setSelectedExam] = useState(null); // Store exam ID
   const [exams, setExams] = useState([]); // Array of { id, name }
@@ -25,7 +27,7 @@ function App() {
 
   const fetchUserExams = async (username) => {
     try {
-      const response = await fetch(`https://practicepal.onrender.com/users/${username}`);
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/users/${username}`);
       if (!response.ok) {
         throw new Error('Failed to fetch user data');
       }

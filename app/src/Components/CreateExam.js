@@ -26,7 +26,7 @@ function CreateExam({ username, setExams, setSelectedExam, setExamQuestions }) {
 
     try {
       // Send files to the API
-      const response = await fetch(`https://practicepal.onrender.com/create_exam/${username}`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/create_exam/${username}`, {
         method: "POST",
         body: formData,
       });

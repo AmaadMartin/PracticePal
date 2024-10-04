@@ -50,9 +50,9 @@ pending_user_table = dynamodb.Table("pending_users")  # Create this table
 def create_checkout_session(email, tier, user_id):
     # Map subscription tiers to Stripe Price IDs
     price_ids = {
-        "free": "price_1Q5z1WKvlSdIAc9WAM11wzJh",  # Replace with your actual Price IDs
-        "gold": "price_1Q60BZKvlSdIAc9WhAVs6l9C",
-        "diamond": "price_diamond",
+        "free": os.getenv("STRIPE_FREE_PRICE"),  # Replace with your actual Price IDs
+        "gold": os.getenv("STRIPE_GOLD_PRICE"),
+        "diamond": os.getenv("STRIPE_DIAMOND_PRICE"),
     }
     if tier not in price_ids:
         raise ValueError("Invalid subscription tier: " + tier)
@@ -66,8 +66,8 @@ def create_checkout_session(email, tier, user_id):
             }
         ],
         mode="subscription",
-        success_url="http://localhost:3000/payment-success?session_id={CHECKOUT_SESSION_ID}",
-        cancel_url="http://localhost:3000/payment-cancel",
+        success_url="https://www.practice-pal.com/payment-success?session_id={CHECKOUT_SESSION_ID}",
+        cancel_url="https://www.practice-pal.com/payment-cancel",
         customer_email=email,
         client_reference_id=user_id,  # Pass the unique user ID
     )
@@ -199,9 +199,11 @@ async def login(data: dict):
 
 @app.post("/signup")
 async def signup(data: dict):
+    print(data)
     email = data["email"]
     password = data["password"]
     tier = data["tier"]
+    print(email, password, tier)
 
     if not email or not password or not tier:
         raise HTTPException(
@@ -380,4 +382,5 @@ async def grade_quiz(payload: dict):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0.", port=10000)
+    # uvicorn.run(app, host="0.0.0.0.", port=10000)
+    uvicorn.run(app, host="localhost", port=8000)

@@ -4,10 +4,7 @@ import React, { useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import "./Signup.css";
 
-
-const stripePromise = loadStripe(
-    process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY
-); // Replace with your Stripe Publishable Key
+const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY); // Replace with your Stripe Publishable Key
 
 function Signup() {
   const [formData, setFormData] = useState({
@@ -18,30 +15,29 @@ function Signup() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const tiers = [
-    {
-      value: "free",
-      label: "Free",
-      price: "Free",
-      features: ["Basic practice exams", "Access to limited materials"],
-    },
+    // {
+    //   value: "free",
+    //   label: "Free",
+    //   price: "Free",
+    //   features: ["Basic practice exams", "Access to limited materials"],
+    // },
     {
       value: "gold",
-      label: "Gold",
+      label: "Gold Supporter",
       price: "$8.99/month",
       features: [
-        "Everything in Free",
-        "Advanced practice exams",
-        "Priority support",
+        "12 exams per month",
+        "Automated Grading",
       ],
     },
     {
       value: "diamond",
-      label: "Diamond",
+      label: "Diamond Supporter",
       price: "$18.99/month",
       features: [
-        "Everything in Gold",
-        "Personalized coaching",
-        "Exclusive content",
+        "Endless Exams",
+        "Automated Grading",
+        "Detailed Answer Analysis and Explanations",
       ],
     },
   ];
@@ -65,11 +61,14 @@ function Signup() {
     setIsProcessing(true);
 
     try {
-      const response = await fetch("https://practicepal.onrender.com/signup", {
+      console.log("here");
+      console.log(process.env.REACT_APP_API_URL);
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
+      console.log(response);
       const data = await response.json();
 
       if (data.sessionId) {
