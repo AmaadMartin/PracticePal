@@ -1,8 +1,11 @@
 import os
 from openai import OpenAI
 import json
+from dotenv import load_dotenv
+load_dotenv()
 
-os.environ["OPENAI_API_KEY"] = ""
+
+os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 
 prompt_instructions = """
 Make a practice exam based on the class materials provided. Try to search as many files as possible for relevant information. To make the exam first make a name for the exam using the createExamName function. Then, for each question in the exam use the createQuestion function. The createQuestion function takes in the following parameters:
@@ -24,12 +27,11 @@ createQuestion({
 Use this function to create a practice exam based on the class materials provided. Make around 10-15 questions for the exam. Make sure to have variety in the question types.
 """
 
-model = "gpt-4o"
+model = "gpt-4o-mini"
 
 class Agent:
     def __init__(self):
         self.client = OpenAI()
-        self.file_ids = []
         self.agent = self.client.beta.assistants.create(
             name="Exam Maker",
             instructions=prompt_instructions,
@@ -74,21 +76,25 @@ class Agent:
             ,{"type": "file_search"}],
             model=model
         )
-        self.data = {}
 
-    def create_conversation(self):
+    def create_conversation(self, files):
+        file_ids = self.add_files(files)
         messages = [
             {
                 "role": "user",
                 "content": "Can you make a practice exam based on these class materials? Try to search as many files as possible for relevant information.",
-                "attachments": [{"file_id": file_id, "tools": [{"type": "file_search"}]} for file_id in self.file_ids],
+                "attachments": [{"file_id": file_id, "tools": [{"type": "file_search"}]} for file_id in file_ids],
             }
         ]
         thread = self.client.beta.threads.create(messages=messages)
-        self.data[thread.id] = {"questions": [], "answers": []}
         return thread.id
 
     def run_agent(self, query, threadId):
+        data = {
+            "exam_name": "",
+            "questions": []
+        }
+
         # create run for assistant
         run = self.client.beta.threads.runs.create(
             thread_id=threadId,
@@ -113,18 +119,20 @@ class Agent:
                                 args = json.loads(toolCall.function.arguments)
                                 print(args)
                                 if args["type"] == "mc" :
-                                    self.data[threadId]["questions"].append({
+                                    data["questions"].append({
                                         "question": args["question"],
                                         "type": args["type"],
-                                        "answer_choices": args["answer_choices"]
+                                        "answer_choices": args["answer_choices"],
+                                        "correct_answer": args["correct_answer"],
+                                        "explanation": args["answer_explanation"]
                                     })
                                 elif args["type"] == "oe":
-                                    self.data[threadId]["questions"].append({
+                                    data["questions"].append({
                                         "question": args["question"],
-                                        "type": args["type"]
+                                        "type": args["type"],
+                                        "correct_answer": args["correct_answer"],
+                                        "explanation": args["answer_explanation"]
                                     })
-
-                                self.data[threadId]["answers"].append((args["correct_answer"], args["answer_explanation"]))
 
                                 # Do something with args
                                 toolOutputs.append({
@@ -139,7 +147,7 @@ class Agent:
                         elif toolCall.function.name == "createExamName":
                             if toolCall.function.arguments:
                                 args = json.loads(toolCall.function.arguments)
-                                self.data[threadId]["exam_name"] = args["exam_name"]
+                                data["exam_name"] = args["exam_name"]
                                 toolOutputs.append({
                                     "tool_call_id": toolCall.id,
                                     "output": "success"
@@ -169,7 +177,7 @@ class Agent:
         messages = list(map(lambda x: {"role": x.role, "value": x.content[0].text.value}, messages.data))
         print(messages)
 
-        return messages
+        return data
 
     def delete_thread(self, threadId):
         self.client.beta.threads.delete(threadId) 
@@ -183,9 +191,11 @@ class Agent:
         return file_ids
 
     def add_files(self, files):
+        file_ids = []
         for file in files:
             file = self.client.files.create(file=file, purpose="assistants")
-            self.file_ids.append(file.id)
+            file_ids.append(file.id)
+        return file_ids
 
 
 def generate_exam_html(questions, output_filename='exam.html'):

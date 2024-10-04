@@ -1,0 +1,51 @@
+/* src/Components/Exam.css */
+
+.exam-content {
+    padding: 20px;
+    flex-grow: 1;
+    overflow-y: auto;
+  }
+  
+  .submit-button {
+    padding: 10px 20px;
+    background-color: #9f1e1e;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    border-radius: 5px;
+    margin-top: 20px;
+    transition: background-color 0.3s;
+  }
+  
+  .submit-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+  }
+  
+  .submit-button:hover:not(:disabled) {
+    background-color: #8a0000;
+  }
+  
+  .result {
+    margin-top: 30px;
+    padding: 20px;
+    border: 2px solid #9f1e1e;
+    border-radius: 5px;
+    background-color: #ecf9f1;
+  }
+  
+  .result h2 {
+    color: #1abc9c;
+  }
+  
+  .result ul {
+    list-style-type: none;
+    padding-left: 0;
+  }
+  
+  .result li {
+    margin-bottom: 15px;
+    border-bottom: 1px solid #bdc3c7;
+    padding-bottom: 10px;
+  }

@@ -1,4 +1,4 @@
-/* src/CreateExam.css */
+/* src/Components/CreateExam.css */
 .dropzone {
     border: 2px dashed #b22222;
     border-radius: 5px;
@@ -33,4 +33,3 @@
     background-color: #ccc;
     cursor: not-allowed;
   }
-  

@@ -1,0 +1,174 @@
+/* src/Components/Sidebar.css */
+
+/* Sidebar Container */
+.sidebar {
+    width: 250px;
+    background-color: #2c3e50; /* Darker shade for a modern look */
+    color: #ecf0f1; /* Light text color for contrast */
+    padding: 20px;
+    height: 100vh;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  
+  /* Sidebar Header */
+  .sidebar h2 {
+    margin-top: 0;
+    border-bottom: 1px solid #34495e;
+    padding-bottom: 10px;
+    font-size: 24px;
+    text-align: center;
+  }
+  
+  /* Exam List */
+  .exam-list {
+    list-style-type: none;
+    padding-left: 0;
+    margin-top: 20px;
+    flex-grow: 1;
+    overflow-y: auto; /* Enable vertical scrolling if needed */
+  }
+  
+  /* Exam List Items */
+  .exam-list li {
+    margin-bottom: 10px;
+  }
+  
+  /* Exam Link */
+  .exam-link {
+    display: flex;
+    align-items: center;
+    padding: 10px 15px;
+    background-color: #b22222; /* Slightly lighter shade */
+    color: #ecf0f1;
+    text-decoration: none;
+    border-radius: 5px;
+    transition: background-color 0.3s, transform 0.2s, box-shadow 0.3s;
+  }
+  
+  /* Hover Effect for Exam Link */
+  .exam-link:hover {
+    background-color: #9f1e1e;
+    transform: translateX(5px);
+    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
+  }
+  
+  /* Active Exam Link */
+  .exam-link.active {
+    background-color: #8a0000; /* Darker shade to indicate active exam */
+    color: #fff;
+    cursor: default; /* Change cursor to default for active exam */
+  }
+
+  .exam-link.active:hover {
+    background-color: #8a0000;
+    transform: none; 
+    box-shadow: none;
+  }
+   
+  /* Exam Icons */
+  .exam-icon {
+    margin-right: 10px;
+    font-size: 18px;
+    transition: color 0.3s;
+  }
+  
+  .exam-icon.active-icon {
+    color: #fff; /* Ensure icon color contrasts with background */
+  }
+  
+  /* Exam Name */
+  .exam-name {
+    flex-grow: 1;
+  }
+  
+  /* Create Button */
+  .create-button {
+    width: 100%;
+    padding: 10px;
+    background-color: #1abc9c; /* Teal color for contrast */
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    text-align: center;
+    font-size: 16px;
+    border-radius: 5px;
+    transition: background-color 0.3s, transform 0.2s;
+  }
+  
+  .create-button:hover {
+    background-color: #16a085;
+    transform: translateY(-2px);
+  }
+  
+  /* Create Link */
+  .create-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    text-decoration: none;
+  }
+  
+  /* Plus Icon */
+  .plus-icon {
+    margin-right: 8px;
+    font-size: 18px;
+  }
+  
+  /* Scrollbar Styling for Exam List */
+  
+  /* For Firefox */
+  .exam-list {
+    scrollbar-width: thin;
+    scrollbar-color: #34495e #2c3e50;
+  }
+  
+  /* For WebKit Browsers */
+  .exam-list::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .exam-list::-webkit-scrollbar-track {
+    background: #2c3e50;
+  }
+  
+  .exam-list::-webkit-scrollbar-thumb {
+    background-color: #34495e;
+    border-radius: 3px;
+  }
+  
+  /* Responsive Design */
+  
+  /* Adjustments for Tablets and Below */
+  @media (max-width: 768px) {
+    .sidebar {
+      width: 200px;
+      padding: 15px;
+    }
+  
+    .sidebar h2 {
+      font-size: 20px;
+    }
+  
+    .exam-link {
+      padding: 8px 12px;
+    }
+  
+    .create-button {
+      padding: 8px;
+      font-size: 14px;
+    }
+  
+    .exam-icon,
+    .plus-icon {
+      font-size: 16px;
+    }
+  }
+  
+  /* Optional: Smooth Scroll for Exam List */
+  .exam-list {
+    scroll-behavior: smooth;
+  }

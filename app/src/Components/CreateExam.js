@@ -1,8 +1,8 @@
-// src/CreateExam.js
+// src/Components/CreateExam.js
 import React, { useState } from "react";
 import "./CreateExam.css";
 
-function CreateExam({ setExams, setSelectedExam, setExamQuestions }) {
+function CreateExam({ username, setExams, setSelectedExam, setExamQuestions }) {
   const [files, setFiles] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -22,37 +22,39 @@ function CreateExam({ setExams, setSelectedExam, setExamQuestions }) {
     // Prepare form data
     const formData = new FormData();
     files.forEach((file) => formData.append("files", file));
+    formData.append("username", username); // Include username in the form data
 
     try {
       // Send files to the API
-      const response = await fetch("http://localhost:8000/create_exam", {
+      const response = await fetch(`http://localhost:8000/create_exam/${username}`, {
         method: "POST",
         body: formData,
       });
 
-      //   log the response
-    //   console.log(response);
+      if (!response.ok) {
+        throw new Error('Failed to create exam');
+      }
 
       const data = await response.json();
 
-      // Assume the API returns an array of questions
-      const questions = data.questions;
+      // Assume the API returns the new exam with id, name, and questions
+      const newExam = {
+        id: data.id, // Ensure the API returns the exam's id
+        name: data.name,
+        questions: data.questions,
+      };
 
-      console.log(questions);
-
-      // Update exam data
-      const newExamName = data.examName;
+      // Update examQuestions
       setExamQuestions((prev) => ({
         ...prev,
-        [newExamName]: questions,
+        [newExam.id]: newExam.questions,
       }));
 
-      setExams((prev) => [...prev, newExamName]);
-      setSelectedExam(newExamName);
-    //   console.log("Exam created:", newExamName);
+      // Update exams list
+      setExams((prev) => [...prev, { id: newExam.id, name: newExam.name }]);
 
-      // Redirect to the exam page
-    //   window.location.href = "/";
+      // Set the newly created exam as selected
+      setSelectedExam(newExam.id);
     } catch (error) {
       console.error("Error uploading files:", error);
       alert("Failed to upload files. Please try again.");

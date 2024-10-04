@@ -1,11 +1,31 @@
-// src/Question.js
+// src/Components/Question.js
 import React from 'react';
+import { useEffect } from 'react';
+import './Question.css'; // Import the corresponding CSS file
 
-function Question({ question, index }) {
+function Question({ question, index, onAnswerChange, currentAnswer, resultDetail }) {
   const { question: questionText, type, answer_choices } = question;
 
+  const handleChange = (e) => {
+    const value = e.target.value;
+    onAnswerChange(index, value);
+  };
+
+  // Determine the CSS class based on whether the answer is correct or incorrect
+  let questionClass = 'question';
+  let feedbackClass = 'feedback';
+  if (resultDetail) {
+    if (resultDetail.correct === true) {
+      questionClass += ' correct-answer';
+      feedbackClass += ' correct-feedback';
+    } else if (resultDetail.correct === false) {
+      questionClass += ' incorrect-answer';
+      feedbackClass += ' incorrect-feedback';
+    }
+  }
+
   return (
-    <div className="question">
+    <div className={questionClass}>
       <p>
         <strong>
           {index + 1}. {questionText}
@@ -19,6 +39,9 @@ function Question({ question, index }) {
                 id={`q${index}_option${optionIndex}`}
                 name={`q${index}`}
                 value={option}
+                onChange={handleChange}
+                checked={currentAnswer === option} // Controlled input
+                disabled={!!resultDetail} // Disable input after submission
               />
               <label htmlFor={`q${index}_option${optionIndex}`}>
                 {option}
@@ -32,9 +55,18 @@ function Question({ question, index }) {
                 name={`q${index}`}
                 rows="4"
                 cols="50"
+                onChange={handleChange}
+                value={currentAnswer} // Controlled input
+                disabled={!!resultDetail} // Disable input after submission
               ></textarea>
             </div>
           )}
+      {resultDetail && (
+        <div className={feedbackClass}>
+          <p><strong>Correct Answer:</strong> {resultDetail.correct_answer}</p>
+          <p><strong>Explanation:</strong> {resultDetail.explanation}</p>
+        </div>
+      )}
     </div>
   );
 }

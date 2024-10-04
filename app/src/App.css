@@ -1,7 +1,9 @@
 /* src/App.css */
+
 .app-container {
   display: flex;
-  font-family: Arial, sans-serif;
+  height: 100vh;
+  overflow: hidden; /* Prevent the entire page from scrolling */
 }
 
 .sidebar {
@@ -24,21 +26,14 @@
   padding-left: 0;
 }
 
-.sidebar ul li {
-  padding: 12px 0;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
 
-.sidebar ul li:hover {
-  background-color: #8b1a1a; /* Darker red */
-}
 
 .exam-content {
+  padding: 20px;
   flex-grow: 1;
-  padding: 40px;
-  background-color: #f8f8f8;
-  box-sizing: border-box;
+  overflow-y: auto; /* Enable vertical scrolling within the exam content */
+  /* Optionally, to prevent horizontal overflow */
+  overflow-x: hidden;
 }
 
 .exam-content h1 {

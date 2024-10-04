@@ -1,0 +1,115 @@
+/* src/Components/Signup.css */
+
+.signup-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px;
+  }
+  
+  .signup-container h1 {
+    color: #b22222;
+    margin-bottom: 20px;
+  }
+  
+  .signup-container form {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 800px;
+  }
+  
+  .signup-container input {
+    padding: 10px;
+    margin-bottom: 15px;
+    font-size: 16px;
+    border: 2px solid #b22222;
+    border-radius: 5px;
+  }
+  
+  .tier-options {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+    flex-wrap: nowrap; /* Changed from wrap to nowrap */
+    overflow-x: auto;  /* Add horizontal scrolling if needed */
+  }
+  
+  .tier-card {
+    border: 2px solid #b22222;
+    border-radius: 10px;
+    padding: 20px;
+    margin: 10px;
+    width: 203px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s;
+    background-color: #fff;
+    flex-shrink: 0; /* Prevent cards from shrinking */
+    flex-grow: 0;   /* Prevent cards from growing */
+  }
+  
+  .tier-card:hover {
+    transform: scale(1.05);
+    border-color: #8b0000;
+  }
+  
+  .tier-card.selected {
+    border-color: #8b0000;
+    box-shadow: 0 0 10px rgba(139, 0, 0, 0.5);
+  }
+  
+  .tier-card h2 {
+    margin-top: 0;
+    color: #b22222;
+  }
+  
+  .price {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 10px 0;
+  }
+  
+  .tier-card ul {
+    list-style-type: none;
+    padding-left: 0;
+    text-align: left;
+  }
+  
+  .tier-card li {
+    margin-bottom: 5px;
+  }
+  
+  .signup-container button[type="submit"] {
+    padding: 10px;
+    background-color: #b22222;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    border-radius: 5px;
+    width: 100%;
+  }
+  
+  .signup-container button[type="submit"]:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+  }
+  
+  /* Responsive design for smaller screens */
+  @media (max-width: 768px) {
+    .tier-options {
+      flex-direction: column;
+      align-items: center;
+    }
+  
+    .tier-card {
+      width: 100%;
+      max-width: 400px;
+    }
+  
+    .signup-container form {
+      width: 100%;
+    }
+  }
+  
