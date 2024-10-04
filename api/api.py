@@ -376,8 +376,8 @@ async def grade_quiz(payload: dict):
         return {"message": "User not found"}
 
 # Wrap the FastAPI app with Mangum
-handler = Mangum(app, lifespan="off")
+# handler = Mangum(app, lifespan="off")
 
 
-# if __name__ == "__main__":
-#     uvicorn.run(app, host="localhost", port=8000)
+if __name__ == "__main__":
+    uvicorn.run(app, host="localhost", port=8000)
