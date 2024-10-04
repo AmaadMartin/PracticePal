@@ -6,13 +6,13 @@ import shutil
 from fastapi.middleware.cors import CORSMiddleware
 import boto3
 from AnswerChecker import isCorrectOpenEndedAnswer
-from pydantic import BaseModel
 import bcrypt
 from fastapi.responses import JSONResponse
 import stripe
 import os
 from dotenv import load_dotenv
 import uuid
+from mangum import Mangum
 
 load_dotenv()
 
@@ -45,17 +45,6 @@ user_table = dynamodb.Table("userbase")  # Ensure this table exists
 # Temporary pending users table
 pending_user_table = dynamodb.Table("pending_users")  # Create this table
 
-
-# Request models
-class SignupRequest(BaseModel):
-    email: str
-    password: str
-    tier: str
-
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
 
 
 def create_checkout_session(email, tier, user_id):
@@ -186,9 +175,9 @@ async def read_user(user_id: str):
 
 
 @app.post("/login")
-async def login(data: LoginRequest):
-    username = data.username
-    password = data.password
+async def login(data: dict):
+    username = data["username"]
+    password = data["password"]
 
     # Fetch user from DynamoDB
     response = user_table.get_item(Key={"username": username})
@@ -209,10 +198,10 @@ async def login(data: LoginRequest):
 
 
 @app.post("/signup")
-async def signup(data: SignupRequest):
-    email = data.email
-    password = data.password
-    tier = data.tier
+async def signup(data: dict):
+    email = data["email"]
+    password = data["password"]
+    tier = data["tier"]
 
     if not email or not password or not tier:
         raise HTTPException(
@@ -386,6 +375,9 @@ async def grade_quiz(payload: dict):
     else:
         return {"message": "User not found"}
 
+# Wrap the FastAPI app with Mangum
+handler = Mangum(app, lifespan="off")
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="localhost", port=8000)
+
+# if __name__ == "__main__":
+#     uvicorn.run(app, host="localhost", port=8000)

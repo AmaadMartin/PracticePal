@@ -1,0 +1,10 @@
+openai
+python-multipart
+fastapi
+uvicorn
+boto3
+pydantic 
+bcrypt
+stripe
+python-dotenv
+mangum

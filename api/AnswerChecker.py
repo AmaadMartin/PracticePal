@@ -1,15 +1,12 @@
-from pydantic import BaseModel
 import os
 from openai import OpenAI
 from dotenv import load_dotenv
+import json
 load_dotenv()
+
 
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 client = OpenAI()
-
-class AnswerCheckerResponseFormat(BaseModel):
-    short_reason: str
-    correct: bool
 
 def isCorrectOpenEndedAnswer(answer, correct_answer, explanation):
     messages = [
@@ -28,10 +25,26 @@ def isCorrectOpenEndedAnswer(answer, correct_answer, explanation):
     response = client.beta.chat.completions.parse(
         model="gpt-4o",
         messages=messages,
-        response_format=AnswerCheckerResponseFormat
+        response_format={
+        "type": "json_schema",
+        "json_schema": {
+            "name": "math_response",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "short_reason": {"type": "string"},
+                    "correct": {"type": "string"}
+                },
+                "required": ["short_reason", "correct"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    }
     )
-    print(response.choices[0].message.parsed.short_reason)
-    isCorrect = response.choices[0].message.parsed.correct
+    json_response = json.loads(response.choices[0].message.content)
+    print(json_response)
+    isCorrect = bool(json_response["correct"])
     return isCorrect
 
 if __name__ == "__main__":
