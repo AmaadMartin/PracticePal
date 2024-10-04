@@ -199,11 +199,11 @@ async def login(data: dict):
 
 @app.post("/signup")
 async def signup(data: dict):
-    print(data)
+    # print(data)
     email = data["email"]
     password = data["password"]
     tier = data["tier"]
-    print(email, password, tier)
+    # print(email, password, tier)
 
     if not email or not password or not tier:
         raise HTTPException(
