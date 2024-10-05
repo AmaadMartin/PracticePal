@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import "./CreateExam.css";
 
-function CreateExam({ username, setExams, setSelectedExam, setExamQuestions }) {
+function CreateExam({ username, setExams, setSelectedExam, setExamQuestions, setCredits }) {
   const [files, setFiles] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -30,12 +30,21 @@ function CreateExam({ username, setExams, setSelectedExam, setExamQuestions }) {
         method: "POST",
         body: formData,
       });
+      console.log(response);
 
       if (!response.ok) {
         throw new Error('Failed to create exam');
       }
 
       const data = await response.json();
+
+      console.log(data)
+
+      if (data.message !== 'success') {
+        alert(data.message);
+        return;
+      }
+      setCredits((prev) => prev - 1);
 
       // Assume the API returns the new exam with id, name, and questions
       const newExam = {

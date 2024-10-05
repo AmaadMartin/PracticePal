@@ -1,0 +1,77 @@
+/* src/Components/PurchaseCredits.css */
+
+.purchase-credits-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px;
+  }
+  
+  .purchase-credits-container h1 {
+    color: #b22222;
+    margin-bottom: 20px;
+  }
+  
+  .purchase-credits-container form {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 800px;
+  }
+  
+  .credit-options {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  
+  .credit-card {
+    border: 2px solid #b22222;
+    border-radius: 10px;
+    padding: 20px;
+    margin: 10px;
+    width: 203px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s;
+    background-color: #fff;
+  }
+  
+  .credit-card:hover {
+    transform: scale(1.05);
+    border-color: #8b0000;
+  }
+  
+  .credit-card.selected {
+    border-color: #8b0000;
+    box-shadow: 0 0 10px rgba(139, 0, 0, 0.5);
+  }
+  
+  .credit-card h2 {
+    margin-top: 0;
+    color: #b22222;
+  }
+  
+  .price {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 10px 0;
+  }
+  
+  .purchase-credits-container button[type="submit"] {
+    padding: 10px;
+    background-color: #b22222;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    border-radius: 5px;
+    width: 100%;
+  }
+  
+  .purchase-credits-container button[type="submit"]:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+  }
+  

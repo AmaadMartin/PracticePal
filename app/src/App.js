@@ -7,7 +7,7 @@ import CreateExam from './Components/CreateExam';
 import Login from './Components/Login';
 import ProtectedRoute from './Components/ProtectedRoute';
 import Signup from './Components/Signup';
-import PaymentSuccess from './Components/PaymentSuccess';
+import PurchaseCredits from './Components/PurchaseCredits';
 import './App.css';
 
 
@@ -17,6 +17,7 @@ function App() {
   const [exams, setExams] = useState([]); // Array of { id, name }
   const [examQuestions, setExamQuestions] = useState({});
   const [username, setUsername] = useState('');
+  const [credits, setCredits] = useState(0);
 
   // Fetch user exams when username is set
   useEffect(() => {
@@ -32,6 +33,8 @@ function App() {
         throw new Error('Failed to fetch user data');
       }
       const data = await response.json();
+
+      setCredits(data.exam_credits);
 
       // Assuming the API returns data in the new format
       const userExams = data.exams.map((exam) => ({
@@ -61,6 +64,7 @@ function App() {
     }
   };
 
+
   return (
     <Router>
       {username ? (
@@ -68,7 +72,8 @@ function App() {
           <Sidebar
             exams={exams}
             setSelectedExam={setSelectedExam}
-            selectedExam={selectedExam} // Pass the selectedExam ID
+            selectedExam={selectedExam}
+            credits={credits}
           />
           <Routes>
             <Route
@@ -78,8 +83,8 @@ function App() {
                   <Exam
                     selectedExam={selectedExam}
                     examQuestions={examQuestions}
-                    exams={exams} // Pass exams to display exam name
-                    username={username} // Pass username
+                    exams={exams}
+                    username={username}
                   />
                 </ProtectedRoute>
               }
@@ -93,7 +98,32 @@ function App() {
                     setExams={setExams}
                     setSelectedExam={setSelectedExam}
                     setExamQuestions={setExamQuestions}
+                    setCredits={setCredits}
                   />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/purchase-credits"
+              element={
+                <ProtectedRoute isAuthenticated={!!username}>
+                  <PurchaseCredits username={username} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/payment-success"
+              element={
+                <ProtectedRoute isAuthenticated={!!username}>
+                  <Login setUsername={setUsername} />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/payment-cancel"
+              element={
+                <ProtectedRoute isAuthenticated={!!username}>
+                  <Login setUsername={setUsername} />
                 </ProtectedRoute>
               }
             />

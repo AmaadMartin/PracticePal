@@ -46,6 +46,63 @@ user_table = dynamodb.Table("userbase")  # Ensure this table exists
 pending_user_table = dynamodb.Table("pending_users")  # Create this table
 
 
+def create_user(email, password, tier, stripe_customer_id=None):
+    match tier:
+        case "free":
+            exam_credits = 6
+        case "gold":
+            exam_credits = 15
+        case "diamond":
+            exam_credits = 50
+    user_table.put_item(
+        Item={
+            "username": email,
+            "password": password,
+            "stripe_customer_id": "",
+            "tier": tier,
+            "exams": [],
+            "exam_credits": exam_credits,
+        }
+    )
+
+
+def create_credit_checkout_session(username, option):
+    # Map credit options to Stripe Price IDs and number of credits
+    credit_options = {
+        "1_credit": {
+            "price_id": os.getenv("STRIPE_PRICE_ID_1_CREDIT"),
+            "credits": 1,
+        },
+        "10_credits": {
+            "price_id": os.getenv("STRIPE_PRICE_ID_10_CREDITS"),
+            "credits": 10,
+        },
+        "100_credits": {
+            "price_id": os.getenv("STRIPE_PRICE_ID_100_CREDITS"),
+            "credits": 100,
+        },
+    }
+    if option not in credit_options:
+        raise ValueError("Invalid credit option: " + option)
+
+    session = stripe.checkout.Session.create(
+        payment_method_types=["card"],
+        line_items=[
+            {
+                "price": credit_options[option]["price_id"],
+                "quantity": 1,
+            }
+        ],
+        mode="payment",
+        success_url=f"{os.getenv('FRONTEND_URL')}/payment-success",
+        cancel_url=f"{os.getenv('FRONTEND_URL')}/payment-cancel",
+        metadata={
+            "username": username,
+            "credits": str(credit_options[option]["credits"]),
+        },
+    )
+    return session
+
 
 def create_checkout_session(email, tier, user_id):
     # Map subscription tiers to Stripe Price IDs
@@ -66,8 +123,8 @@ def create_checkout_session(email, tier, user_id):
             }
         ],
         mode="subscription",
-        success_url="https://www.practice-pal.com/payment-success?session_id={CHECKOUT_SESSION_ID}",
-        cancel_url="https://www.practice-pal.com/payment-cancel",
+        success_url=f"{os.getenv('FRONTEND_URL')}/payment-success",
+        cancel_url=f"{os.getenv('FRONTEND_URL')}/payment-cancel",
         customer_email=email,
         client_reference_id=user_id,  # Pass the unique user ID
     )
@@ -105,31 +162,52 @@ test_questions = [
 ]
 
 
+def test_create_exam_response(user_id):
+    response = user_table.get_item(Key={"username": user_id})
+    item = response.get("Item")
+    if item:
+        exams = item.get("exams")
+        exam_id = len(exams)
+    else:
+        exam_id = 0
+
+    response = {
+        "id": exam_id,
+        "name": "Test Exam",
+        "questions": test_questions,
+        "message": "success",
+    }
+    user_table.update_item(
+        Key={"username": user_id},
+        UpdateExpression="SET exams = list_append(if_not_exists(exams, :empty_list), :response)",
+        ExpressionAttributeValues={":empty_list": [], ":response": [response]},
+    )
+    return response
+
+
 @app.post("/create_exam/{user_id}")
 async def create_exam(files: list[UploadFile] = File(...), user_id: str = None):
+    # get number of exams user has to get an id
+    response = user_table.get_item(Key={"username": user_id})
+    item = response.get("Item")
+    if item:
+        # check if user has atleast 1 exam credit or is not a free user to create an exam
+        exam_credits = item.get("exam_credits")
+        print("exam_credits", exam_credits)
+        if exam_credits < 1:
+            return {
+                "message": "You do not have enough exam credits. They will reset next sunday."
+            }
 
-    # response = user_table.get_item(Key={'username': user_id})
-    # item = response.get('Item')
-    # if item:
-    #     exams = item.get('exams')
-    #     exam_id = len(exams)
-    # else:
-    #     exam_id = 0
+        # decrement exam credits
+        user_table.update_item(
+            Key={"username": user_id},
+            UpdateExpression="SET exam_credits = exam_credits - :val",
+            ExpressionAttributeValues={":val": 1},
+        )
 
-    # response = {
-    #     "id": exam_id,
-    #     "name": "Test Exam",
-    #     "questions": test_questions
-    # }
-    # user_table.update_item(
-    #     Key={'username': user_id},
-    #     UpdateExpression='SET exams = list_append(if_not_exists(exams, :empty_list), :response)',
-    #     ExpressionAttributeValues={
-    #         ':empty_list': [],
-    #         ':response': [response]
-    #     }
-    # )
-    # return response
+    if os.getenv("ENV") == "dev":
+        return test_create_exam_response(user_id)
 
     # convert files to list of file objects while keeping their extensions
     files = [(file.filename, file.file) for file in files]
@@ -140,9 +218,6 @@ async def create_exam(files: list[UploadFile] = File(...), user_id: str = None):
     )
     agent.delete_thread(threadId)
 
-    # get number of exams user has to get an id
-    response = user_table.get_item(Key={"username": user_id})
-    item = response.get("Item")
     if item:
         exams = item.get("exams")
         exam_id = len(exams)
@@ -151,15 +226,22 @@ async def create_exam(files: list[UploadFile] = File(...), user_id: str = None):
 
     examName = data["exam_name"]
     questions = data["questions"]
-    response = {"id": exam_id, "name": examName, "questions": questions}
+    response = {
+        "id": exam_id,
+        "name": examName,
+        "questions": questions,
+        "message": "success",
+    }
 
-    # add response to database for user in exams field
+    # add response to database for user in exams field and decrement exam credits
     user_table.update_item(
         Key={"username": user_id},
         UpdateExpression="SET exams = list_append(if_not_exists(exams, :empty_list), :response)",
-        ExpressionAttributeValues={":empty_list": [], ":response": [response]},
+        ExpressionAttributeValues={
+            ":empty_list": [],
+            ":response": [response],
+        },
     )
-
     return response
 
 
@@ -177,6 +259,7 @@ async def read_user(user_id: str):
 @app.post("/login")
 async def login(data: dict):
     username = data["username"]
+    username = username.lower()
     password = data["password"]
 
     # Fetch user from DynamoDB
@@ -201,6 +284,7 @@ async def login(data: dict):
 async def signup(data: dict):
     # print(data)
     email = data["email"]
+    email = email.lower()
     password = data["password"]
     tier = data["tier"]
     # print(email, password, tier)
@@ -225,14 +309,7 @@ async def signup(data: dict):
 
     if tier == "free":
         # Store user data in userbase table
-        user_table.put_item(
-            Item={
-                "username": email,
-                "password": password_hash,
-                "tier": tier,
-                "exams": [],
-            }
-        )
+        create_user(email, password_hash, tier)
         return {"free": True}
 
     # Store user data in pending_users table
@@ -257,6 +334,26 @@ async def signup(data: dict):
             status_code=500, detail="Failed to create checkout session."
         )
 
+@app.post("/purchase_credits")
+async def purchase_credits(data: dict):
+    username = data.get("username")
+    option = data.get("option")
+
+    if not username or not option:
+        raise HTTPException(status_code=400, detail="Username and option are required.")
+
+    # Check if user exists
+    response = user_table.get_item(Key={"username": username})
+    if "Item" not in response:
+        raise HTTPException(status_code=400, detail="User not found.")
+
+    try:
+        session = create_credit_checkout_session(username, option)
+        return {"sessionId": session.id}
+    except Exception as e:
+        print(f"Error creating checkout session: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create checkout session.")
+
 
 @app.post("/webhook")
 async def stripe_webhook(request: Request):
@@ -278,42 +375,61 @@ async def stripe_webhook(request: Request):
         session = event["data"]["object"]
         print(f"Checkout session completed: {session}")
 
-        # Retrieve the user ID
-        user_id = session.get("client_reference_id")
-        if not user_id:
-            print("No client_reference_id found.")
-            raise HTTPException(status_code=400, detail="No client_reference_id found.")
+        mode = session.get("mode")
+        if mode == "subscription":
+            # Handle subscription sign up
+            # Existing code
+            # Retrieve the user ID
+            user_id = session.get("client_reference_id")
+            if not user_id:
+                print("No client_reference_id found.")
+                raise HTTPException(status_code=400, detail="No client_reference_id found.")
 
-        # Retrieve user data from pending_users table
-        response = pending_user_table.get_item(Key={"user_id": user_id})
-        if "Item" not in response:
-            print("Pending user data not found.")
-            raise HTTPException(status_code=400, detail="Pending user data not found.")
+            # Retrieve user data from pending_users table
+            response = pending_user_table.get_item(Key={"user_id": user_id})
+            if "Item" not in response:
+                print("Pending user data not found.")
+                raise HTTPException(status_code=400, detail="Pending user data not found.")
 
-        user_data = response["Item"]
+            user_data = response["Item"]
 
-        email = user_data["username"]
-        password_hash = user_data["password"]
-        tier = user_data["tier"]
-        stripe_customer_id = session.get("customer")
+            email = user_data["username"]
+            password_hash = user_data["password"]
+            tier = user_data["tier"]
+            stripe_customer_id = session.get("customer")
 
-        # Store user data in userbase table
-        item = {
-            "username": email,
-            "password": password_hash,
-            "stripe_customer_id": stripe_customer_id,
-            "tier": tier,
-            "exams": [],
-        }
-        user_table.put_item(Item=item)
-        print(f"User {email} created in DynamoDB.")
+            # Store user data in userbase table
+            create_user(email, password_hash, tier, stripe_customer_id)
+            print(f"User {email} created in DynamoDB.")
 
-        # Delete pending user data
-        pending_user_table.delete_item(Key={"user_id": user_id})
+            # Delete pending user data
+            pending_user_table.delete_item(Key={"user_id": user_id})
+
+        elif mode == "payment":
+            # Handle credits purchase
+            metadata = session.get("metadata", {})
+            username = metadata.get("username")
+            credits = int(metadata.get("credits", 0))
+            if not username or credits <= 0:
+                print("Invalid metadata in payment session.")
+                raise HTTPException(status_code=400, detail="Invalid payment metadata.")
+
+            # Update user's credits in DynamoDB
+            try:
+                user_table.update_item(
+                    Key={"username": username},
+                    UpdateExpression="SET exam_credits = exam_credits + :credits",
+                    ExpressionAttributeValues={":credits": credits},
+                )
+                print(f"Added {credits} credits to user {username}.")
+            except Exception as e:
+                print(f"Error updating user credits: {e}")
+                raise HTTPException(status_code=500, detail="Failed to update user credits.")
+        else:
+            print(f"Unhandled session mode: {mode}")
 
     # Return a 200 response to acknowledge receipt of the event
     return JSONResponse(status_code=200, content={"status": "success"})
-
 
 @app.post("/grade_quiz")
 async def grade_quiz(payload: dict):
@@ -377,10 +493,10 @@ async def grade_quiz(payload: dict):
     else:
         return {"message": "User not found"}
 
+
 # Wrap the FastAPI app with Mangum
 # handler = Mangum(app, lifespan="off")
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0.", port=10000)
-    # uvicorn.run(app, host="localhost", port=8000)
+    uvicorn.run(app, host=os.getenv("HOST"), port=int(os.getenv("PORT")))
