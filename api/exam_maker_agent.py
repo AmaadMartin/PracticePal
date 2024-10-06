@@ -2,30 +2,13 @@ import os
 from openai import OpenAI
 import json
 from dotenv import load_dotenv
+from Prompt import prompt_instructions
 load_dotenv()
 
 
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 
-prompt_instructions = """
-Make a practice exam based on the class materials provided. Try to search as many files as possible for relevant information. To make the exam first make a name for the exam using the createExamName function. Then, for each question in the exam use the createQuestion function. The createQuestion function takes in the following parameters:
-- question: the actual question to be asked
-- type: the type of question to be asked (mc or oe) ONLY mc for multiple choice and oe for open ended are supported
-- answer_choices: the answer choices to be provided if the question is multiple choice
-- correct_answer: the correct answer to the question
-- answer_explanation: an explanation of why the correct answer is correct
-
-Example usage:
-createQuestion({
-    "question": "What is the capital of France?",
-    "type": "mc",
-    "answer_choices": ["Paris", "London", "Berlin", "Madrid"],
-    "correct_answer": "Paris",
-    "answer_explanation": "Paris is the capital of France."
-})
-
-Use this function to create a practice exam based on the class materials provided. Make around 10-15 questions for the exam. Make sure to have variety in the question types.
-"""
+QUERY_PROMPT = "Generate a practice exam based on these files."
 
 model = "gpt-4o-mini"
 
@@ -82,7 +65,7 @@ class Agent:
         messages = [
             {
                 "role": "user",
-                "content": "Can you make a practice exam based on these class materials? Try to search as many files as possible for relevant information.",
+                "content": QUERY_PROMPT,
                 "attachments": [{"file_id": file_id, "tools": [{"type": "file_search"}]} for file_id in file_ids],
             }
         ]
@@ -196,81 +179,3 @@ class Agent:
             file = self.client.files.create(file=file, purpose="assistants")
             file_ids.append(file.id)
         return file_ids
-
-
-def generate_exam_html(questions, output_filename='exam.html'):
-    """
-    Generates an HTML file to visualize a practice exam based on the list of questions provided.
-
-    :param questions: List of dictionaries containing question data.
-    :param output_filename: The name of the output HTML file.
-    """
-    # HTML template parts
-    html_head = '''<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Practice Exam</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-        }
-        .question-container {
-            margin-bottom: 20px;
-        }
-        .question-text {
-            font-weight: bold;
-        }
-    </style>
-</head>
-<body>
-<h1>Practice Exam</h1>
-<div id="exam-container">
-'''
-
-    html_tail = '''
-</div>
-</body>
-</html>'''
-
-    # Generate the body content
-    body_content = ''
-    for index, q in enumerate(questions):
-        question_html = '<div class="question-container">\n'
-        # Question text
-        question_text = f'<p class="question-text">{index + 1}. {q["question"]}</p>\n'
-        question_html += question_text
-
-        if q['type'] == 'mc':
-            # Multiple-choice options
-            for choice in q['answer_choices']:
-                choice_id = f"question-{index}-choice-{q['answer_choices'].index(choice)}"
-                choice_html = f'''
-<label>
-    <input type="radio" name="question-{index}" value="{choice}">
-    {choice}
-</label><br>
-'''
-                question_html += choice_html
-        elif q['type'] == 'oe':
-            # Open-ended question
-            textarea_html = f'''
-<textarea name="question-{index}" rows="4" cols="50"></textarea>
-'''
-            question_html += textarea_html
-        else:
-            # Unsupported question type
-            error_html = '<p style="color: red;">Unsupported question type.</p>\n'
-            question_html += error_html
-
-        question_html += '</div>\n'
-        body_content += question_html
-
-    # Combine all parts and write to the output file
-    full_html = html_head + body_content + html_tail
-
-    with open(output_filename, 'w', encoding='utf-8') as f:
-        f.write(full_html)
-
-    print(f"Exam HTML file has been generated: {output_filename}")
-

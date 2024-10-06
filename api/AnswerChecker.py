@@ -21,7 +21,7 @@ def isCorrectOpenEndedAnswer(answer, correct_answer, explanation):
         },
         {
             "role": "user",
-            "content": f"Student Answer: {answer}\n\rReference Answer: {correct_answer}\n\nExplanation: {explanation}",
+            "content": f"Student Answer: {answer if len(answer) > 0 else '**THIS STUDENT LEFT A BLANK ANSWER IT IS INCORRECT**'}\n\rReference Answer: {correct_answer}\n\nExplanation: {explanation}",
         },
     ]
 
