@@ -1,6 +1,7 @@
 // src/App.js
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import Sidebar from './Components/Sidebar';
 import Exam from './Components/Exam';
 import CreateExam from './Components/CreateExam';
@@ -9,8 +10,6 @@ import ProtectedRoute from './Components/ProtectedRoute';
 import Signup from './Components/Signup';
 import PurchaseCredits from './Components/PurchaseCredits';
 import './App.css';
-
-
 
 function App() {
   const [selectedExam, setSelectedExam] = useState(null); // Store exam ID
@@ -64,81 +63,82 @@ function App() {
     }
   };
 
-
   return (
-    <Router>
-      {username ? (
-        <div className="app-container">
-          <Sidebar
-            exams={exams}
-            setSelectedExam={setSelectedExam}
-            selectedExam={selectedExam}
-            credits={credits}
-          />
+    <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
+      <Router>
+        {username ? (
+          <div className="app-container">
+            <Sidebar
+              exams={exams}
+              setSelectedExam={setSelectedExam}
+              selectedExam={selectedExam}
+              credits={credits}
+            />
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute isAuthenticated={!!username}>
+                    <Exam
+                      selectedExam={selectedExam}
+                      examQuestions={examQuestions}
+                      exams={exams}
+                      username={username}
+                    />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/create"
+                element={
+                  <ProtectedRoute isAuthenticated={!!username}>
+                    <CreateExam
+                      username={username}
+                      setExams={setExams}
+                      setSelectedExam={setSelectedExam}
+                      setExamQuestions={setExamQuestions}
+                      setCredits={setCredits}
+                    />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/purchase-credits"
+                element={
+                  <ProtectedRoute isAuthenticated={!!username}>
+                    <PurchaseCredits username={username} />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/payment-success"
+                element={
+                  <ProtectedRoute isAuthenticated={!!username}>
+                    <Login setUsername={setUsername} />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/payment-cancel"
+                element={
+                  <ProtectedRoute isAuthenticated={!!username}>
+                    <Login setUsername={setUsername} />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </div>
+        ) : (
           <Routes>
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute isAuthenticated={!!username}>
-                  <Exam
-                    selectedExam={selectedExam}
-                    examQuestions={examQuestions}
-                    exams={exams}
-                    username={username}
-                  />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/create"
-              element={
-                <ProtectedRoute isAuthenticated={!!username}>
-                  <CreateExam
-                    username={username}
-                    setExams={setExams}
-                    setSelectedExam={setSelectedExam}
-                    setExamQuestions={setExamQuestions}
-                    setCredits={setCredits}
-                  />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/purchase-credits"
-              element={
-                <ProtectedRoute isAuthenticated={!!username}>
-                  <PurchaseCredits username={username} />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/payment-success"
-              element={
-                <ProtectedRoute isAuthenticated={!!username}>
-                  <Login setUsername={setUsername} />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/payment-cancel"
-              element={
-                <ProtectedRoute isAuthenticated={!!username}>
-                  <Login setUsername={setUsername} />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="*" element={<Navigate to="/" />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/payment-success" element={<Navigate to="/login" />} />
+            <Route path="/login" element={<Login setUsername={setUsername} />} />
+            <Route path="*" element={<Navigate to="/login" />} />
           </Routes>
-        </div>
-      ) : (
-        <Routes>
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/payment-success" element={<Navigate to="/login" />} />
-          <Route path="/login" element={<Login setUsername={setUsername} />} />
-          <Route path="*" element={<Navigate to="/login" />} />
-        </Routes>
-      )}
-    </Router>
+        )}
+      </Router>
+    </GoogleOAuthProvider>
   );
 }
 

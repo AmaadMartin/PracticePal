@@ -26,6 +26,15 @@
     border: 2px solid #b22222;
     border-radius: 5px;
   }
+
+  .signup-container .google-login-button {
+    margin-top: 10px;
+  }
+  
+  .signup-container p {
+    margin-top: 15px;
+    font-size: 14px;
+  }
   
   .tier-options {
     display: flex;

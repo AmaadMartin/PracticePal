@@ -14,6 +14,24 @@
     margin-bottom: 20px;
   }
   
+  .logo {
+    width: 150px;
+  }
+  
+  /* Google Sign-In Button Container */
+  .google-login-container {
+    margin-top: 20px;
+    margin-bottom: 10px;
+  }
+  
+  /* Separator */
+  .or-separator {
+    margin: 20px 0;
+    font-weight: bold;
+    color: #555;
+  }
+  
+  /* Login Form */
   .login-container form {
     display: flex;
     flex-direction: column;
@@ -39,7 +57,7 @@
   }
   
   .login-container button:disabled {
-    background-color: #fff;
+    background-color: #ccc;
     cursor: not-allowed;
   }
   
@@ -57,7 +75,3 @@
     text-decoration: underline;
   }
   
-  /* Add this style for the logo */
-.logo {
-    width: 150px; /* Adjust the size as needed */
-  }

@@ -13,6 +13,8 @@ import os
 from dotenv import load_dotenv
 import uuid
 from mangum import Mangum
+from google.oauth2 import id_token
+from google.auth.transport import requests
 
 load_dotenv()
 
@@ -46,7 +48,9 @@ user_table = dynamodb.Table("userbase")  # Ensure this table exists
 pending_user_table = dynamodb.Table("pending_users")  # Create this table
 
 
-def create_user(email, password, tier, stripe_customer_id=None):
+def create_user(
+    email, password, tier, stripe_customer_id=None, is_google_account=False
+):
     match tier:
         case "free":
             exam_credits = 6
@@ -54,16 +58,44 @@ def create_user(email, password, tier, stripe_customer_id=None):
             exam_credits = 15
         case "diamond":
             exam_credits = 50
-    user_table.put_item(
-        Item={
-            "username": email,
-            "password": password,
-            "stripe_customer_id": "",
-            "tier": tier,
-            "exams": [],
-            "exam_credits": exam_credits,
-        }
+    user_item = {
+        "username": email,
+        "stripe_customer_id": stripe_customer_id or "",
+        "tier": tier,
+        "exams": [],
+        "exam_credits": exam_credits,
+        "is_google_account": is_google_account,
+    }
+    if not is_google_account:
+        user_item["password"] = password
+    user_table.put_item(Item=user_item)
+
+
+def create_checkout_session(email, tier, user_id):
+    # Map subscription tiers to Stripe Price IDs
+    price_ids = {
+        "free": os.getenv("STRIPE_FREE_PRICE"),
+        "gold": os.getenv("STRIPE_GOLD_PRICE"),
+        "diamond": os.getenv("STRIPE_DIAMOND_PRICE"),
+    }
+    if tier not in price_ids:
+        raise ValueError("Invalid subscription tier: " + tier)
+
+    session = stripe.checkout.Session.create(
+        payment_method_types=["card"],
+        line_items=[
+            {
+                "price": price_ids[tier],
+                "quantity": 1,
+            }
+        ],
+        mode="subscription",
+        success_url=f"{os.getenv('FRONTEND_URL')}/payment-success",
+        cancel_url=f"{os.getenv('FRONTEND_URL')}/payment-cancel",
+        customer_email=email,
+        client_reference_id=user_id,  # Pass the unique user ID
     )
+    return session
 
 
 def create_credit_checkout_session(username, option):
@@ -100,33 +132,6 @@ def create_credit_checkout_session(username, option):
             "username": username,
             "credits": str(credit_options[option]["credits"]),
         },
-    )
-    return session
-
-
-def create_checkout_session(email, tier, user_id):
-    # Map subscription tiers to Stripe Price IDs
-    price_ids = {
-        "free": os.getenv("STRIPE_FREE_PRICE"),  # Replace with your actual Price IDs
-        "gold": os.getenv("STRIPE_GOLD_PRICE"),
-        "diamond": os.getenv("STRIPE_DIAMOND_PRICE"),
-    }
-    if tier not in price_ids:
-        raise ValueError("Invalid subscription tier: " + tier)
-
-    session = stripe.checkout.Session.create(
-        payment_method_types=["card"],
-        line_items=[
-            {
-                "price": price_ids[tier],
-                "quantity": 1,
-            }
-        ],
-        mode="subscription",
-        success_url=f"{os.getenv('FRONTEND_URL')}/payment-success",
-        cancel_url=f"{os.getenv('FRONTEND_URL')}/payment-cancel",
-        customer_email=email,
-        client_reference_id=user_id,  # Pass the unique user ID
     )
     return session
 
@@ -334,6 +339,85 @@ async def signup(data: dict):
             status_code=500, detail="Failed to create checkout session."
         )
 
+@app.post("/google-login")
+async def google_login(data: dict):
+    token = data.get("token")
+    if not token:
+        raise HTTPException(status_code=400, detail="Token is required")
+
+    try:
+        # Verify the token
+        idinfo = id_token.verify_oauth2_token(
+            token, requests.Request(), os.getenv("GOOGLE_CLIENT_ID")
+        )
+
+        # Get user info
+        email = idinfo["email"]
+
+        # Check if user exists
+        response = user_table.get_item(Key={"username": email})
+        if "Item" not in response:
+            # Create a new user
+            create_user(email, "", "free", is_google_account=True)
+
+        return {"username": email}
+    except ValueError:
+        # Invalid token
+        raise HTTPException(status_code=400, detail="Invalid token")
+
+
+
+@app.post("/google-signup")
+async def google_signup(data: dict):
+    token = data.get("token")
+    tier = data.get("tier")
+    if not token or not tier:
+        raise HTTPException(status_code=400, detail="Token and tier are required")
+
+    try:
+        # Verify the token
+        idinfo = id_token.verify_oauth2_token(
+            token, requests.Request(), os.getenv("GOOGLE_CLIENT_ID")
+        )
+
+        # Get user info
+        email = idinfo["email"]
+
+        # Check if user already exists
+        response = user_table.get_item(Key={"username": email})
+        if "Item" in response:
+            raise HTTPException(status_code=400, detail="User already exists")
+
+        # Generate a unique user ID
+        user_id = str(uuid.uuid4())
+
+        if tier == "free":
+            # Create user immediately
+            create_user(email, "", tier, is_google_account=True)
+            return {"free": True}
+        else:
+            # Store user data in pending_users table
+            pending_user_table.put_item(
+                Item={
+                    "user_id": user_id,
+                    "username": email,
+                    "tier": tier,
+                    "is_google_account": True,
+                }
+            )
+            # Create Checkout Session
+            session = create_checkout_session(email, tier, user_id)
+            return {"sessionId": session.id}
+    except ValueError:
+        # Invalid token
+        raise HTTPException(status_code=400, detail="Invalid token")
+    except Exception as e:
+        print(f"Error during Google signup: {e}")
+        # Remove pending user data if session creation fails
+        pending_user_table.delete_item(Key={"user_id": user_id})
+        raise HTTPException(status_code=500, detail="Failed to create checkout session")
+
+
 @app.post("/purchase_credits")
 async def purchase_credits(data: dict):
     username = data.get("username")
@@ -352,7 +436,9 @@ async def purchase_credits(data: dict):
         return {"sessionId": session.id}
     except Exception as e:
         print(f"Error creating checkout session: {e}")
-        raise HTTPException(status_code=500, detail="Failed to create checkout session.")
+        raise HTTPException(
+            status_code=500, detail="Failed to create checkout session."
+        )
 
 
 @app.post("/webhook")
@@ -377,29 +463,31 @@ async def stripe_webhook(request: Request):
 
         mode = session.get("mode")
         if mode == "subscription":
-            # Handle subscription sign up
-            # Existing code
             # Retrieve the user ID
             user_id = session.get("client_reference_id")
             if not user_id:
                 print("No client_reference_id found.")
-                raise HTTPException(status_code=400, detail="No client_reference_id found.")
+                raise HTTPException(
+                    status_code=400, detail="No client_reference_id found."
+                )
 
             # Retrieve user data from pending_users table
             response = pending_user_table.get_item(Key={"user_id": user_id})
             if "Item" not in response:
                 print("Pending user data not found.")
-                raise HTTPException(status_code=400, detail="Pending user data not found.")
+                raise HTTPException(
+                    status_code=400, detail="Pending user data not found."
+                )
 
             user_data = response["Item"]
 
             email = user_data["username"]
-            password_hash = user_data["password"]
             tier = user_data["tier"]
+            is_google_account = user_data.get("is_google_account", False)
             stripe_customer_id = session.get("customer")
 
             # Store user data in userbase table
-            create_user(email, password_hash, tier, stripe_customer_id)
+            create_user(email, "", tier, stripe_customer_id, is_google_account)
             print(f"User {email} created in DynamoDB.")
 
             # Delete pending user data
@@ -424,12 +512,15 @@ async def stripe_webhook(request: Request):
                 print(f"Added {credits} credits to user {username}.")
             except Exception as e:
                 print(f"Error updating user credits: {e}")
-                raise HTTPException(status_code=500, detail="Failed to update user credits.")
+                raise HTTPException(
+                    status_code=500, detail="Failed to update user credits."
+                )
         else:
             print(f"Unhandled session mode: {mode}")
 
     # Return a 200 response to acknowledge receipt of the event
     return JSONResponse(status_code=200, content={"status": "success"})
+
 
 @app.post("/grade_quiz")
 async def grade_quiz(payload: dict):

@@ -1,7 +1,8 @@
 // src/Components/Login.js
-
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { GoogleLogin } from '@react-oauth/google';
+import jwt_decode from 'jwt-decode';
 import "./Login.css";
 
 function Login({ setUsername }) {
@@ -19,9 +20,6 @@ function Login({ setUsername }) {
     setIsLoggingIn(true);
 
     try {
-      // Send username and password to login API
-      console.log("here")
-      console.log(process.env.REACT_APP_API_URL);
       const response = await fetch(`${process.env.REACT_APP_API_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -45,6 +43,29 @@ function Login({ setUsername }) {
     }
   };
 
+  const handleGoogleLoginSuccess = async (credentialResponse) => {
+    const { credential } = credentialResponse;
+
+    // Send the credential (ID token) to your backend for verification
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/google-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: credential }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Google login failed');
+      }
+
+      const data = await response.json();
+      setUsername(data.username);
+    } catch (error) {
+      console.error('Google login error:', error);
+      alert('Google login failed. Please try again.');
+    }
+  };
+
   return (
     <div className="login-container">
       <img
@@ -53,6 +74,21 @@ function Login({ setUsername }) {
         className="logo"
       />
       <h1>Practice Pal</h1>
+
+      {/* Google Sign-In Button */}
+      <div className="google-login-container">
+        <GoogleLogin
+          onSuccess={handleGoogleLoginSuccess}
+          onError={() => {
+            console.log('Google Login Failed');
+            alert('Google login failed. Please try again.');
+          }}
+        />
+      </div>
+
+      <p className="or-separator">OR</p>
+
+      {/* Traditional Login Form */}
       <form onSubmit={handleLogin}>
         <input
           type="text"
@@ -72,6 +108,7 @@ function Login({ setUsername }) {
           {isLoggingIn ? "Logging in..." : "Login"}
         </button>
       </form>
+
       <p>
         Don't have an account? <Link to="/signup">Sign up here</Link>
       </p>

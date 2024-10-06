@@ -2,9 +2,11 @@
 
 import React, { useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
+import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
+import jwt_decode from 'jwt-decode';
 import "./Signup.css";
 
-const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY); // Replace with your Stripe Publishable Key
+const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
 
 function Signup() {
   const [formData, setFormData] = useState({
@@ -13,6 +15,7 @@ function Signup() {
     tier: "free",
   });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isGoogleProcessing, setIsGoogleProcessing] = useState(false);
 
   const tiers = [
     {
@@ -61,14 +64,12 @@ function Signup() {
     setIsProcessing(true);
 
     try {
-      console.log("here");
-      console.log(process.env.REACT_APP_API_URL);
       const response = await fetch(`${process.env.REACT_APP_API_URL}/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
-      console.log(response);
+
       const data = await response.json();
 
       if (data.sessionId) {
@@ -87,10 +88,43 @@ function Signup() {
     }
   };
 
+  const handleGoogleSignupSuccess = async (credentialResponse) => {
+    const { credential } = credentialResponse;
+    setIsGoogleProcessing(true);
+
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/google-signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: credential,
+          tier: formData.tier,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.sessionId) {
+        const stripe = await stripePromise;
+        await stripe.redirectToCheckout({ sessionId: data.sessionId });
+      } else if (data.free) {
+        window.location.href = "/login";
+      } else {
+        alert("Failed to process Google signup.");
+      }
+    } catch (error) {
+      console.error("Google Signup Error:", error);
+      alert("An error occurred during Google signup. Please try again.");
+    } finally {
+      setIsGoogleProcessing(false);
+    }
+  };
+
   return (
     <div className="signup-container">
       <h1>Sign Up</h1>
       <form onSubmit={handleSubmit}>
+        {/* Email and Password Fields */}
         <input
           type="email"
           name="email"
@@ -108,6 +142,7 @@ function Signup() {
           required
         />
 
+        {/* Tier Selection */}
         <div className="tier-options">
           {tiers.map((tier) => (
             <div
@@ -128,10 +163,30 @@ function Signup() {
           ))}
         </div>
 
+        {/* Submit Button */}
         <button type="submit" disabled={isProcessing}>
           {isProcessing ? "Processing..." : "Sign Up"}
         </button>
       </form>
+
+      <p>Or sign up with:</p>
+
+      {/* Google Sign Up Button */}
+      <GoogleLogin
+        onSuccess={handleGoogleSignupSuccess}
+        onError={() => {
+          console.log('Google Signup Failed');
+          alert('Google signup failed. Please try again.');
+        }}
+        disabled={isGoogleProcessing}
+      />
+
+
+      {isGoogleProcessing && <p>Processing Google signup...</p>}
+
+      <p>
+        Already have an account? <a href="/login">Log in here</a>
+      </p>
     </div>
   );
 }
