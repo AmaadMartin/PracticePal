@@ -179,6 +179,7 @@ function Signup() {
           alert('Google signup failed. Please try again.');
         }}
         disabled={isGoogleProcessing}
+        clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}
       />
 
 

@@ -83,6 +83,7 @@ function Login({ setUsername }) {
             console.log('Google Login Failed');
             alert('Google login failed. Please try again.');
           }}
+          clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}
         />
       </div>
 
