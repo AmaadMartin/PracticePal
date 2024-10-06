@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import Question from "./Question";
 import "./Exam.css"; // Import the corresponding CSS file
 
-function Exam({ selectedExam, examQuestions, exams, username }) {
+function Exam({ selectedExam, examQuestions, exams, username, tier }) {
   // Find the exam name based on the selectedExam ID
   const examName =
     exams.find((exam) => exam.id === selectedExam)?.name || "Practice Pal";
@@ -12,12 +12,8 @@ function Exam({ selectedExam, examQuestions, exams, username }) {
   const defaultQuestions = [];
 
   // Use questions from examQuestions if available
-  console.log(examQuestions);
-  console.log(selectedExam);
   const questions =
     (selectedExam != null && examQuestions[selectedExam]) || defaultQuestions;
-
-  console.log(questions);
 
   // State to store user's answers
   const [userAnswers, setUserAnswers] = useState({}); // { [questionIndex]: answer }
@@ -98,7 +94,8 @@ function Exam({ selectedExam, examQuestions, exams, username }) {
           index={index}
           onAnswerChange={handleAnswerChange}
           currentAnswer={userAnswers[index] || ""} // Pass the current answer
-          resultDetail={result ? result.details[index] : null} // Pass the result detail if available
+          resultDetail={result && result.details ? result.details[index] : null} // Pass the result detail if available
+          tier={tier} // Pass the tier
         />
       ))}
       {selectedExam != null && (

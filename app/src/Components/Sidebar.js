@@ -1,11 +1,10 @@
 // src/Components/Sidebar.js
-
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import './Sidebar.css';
 import { FaPlus, FaBars } from 'react-icons/fa';
 
-function Sidebar({ exams, setSelectedExam, selectedExam, credits }) {
+function Sidebar({ exams, setSelectedExam, selectedExam, credits, tier }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handleExamClick = (examId) => {
@@ -24,6 +23,12 @@ function Sidebar({ exams, setSelectedExam, selectedExam, credits }) {
       {!isCollapsed && (
         <>
           <h2>Exams</h2>
+          <div className="tier-container">
+            <span className="tier-text">Tier: {tier.charAt(0).toUpperCase() + tier.slice(1)}</span>
+            <Link to="/change-tier" className="change-tier-button">
+              Upgrade
+            </Link>
+          </div>
           <div className="credits-container">
             <div className="credits-box">
               <span>Exam Credits: {credits}</span>

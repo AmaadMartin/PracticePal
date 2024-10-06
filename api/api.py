@@ -47,23 +47,25 @@ user_table = dynamodb.Table("userbase")  # Ensure this table exists
 # Temporary pending users table
 pending_user_table = dynamodb.Table("pending_users")  # Create this table
 
+# Pending tier changes table
+pending_tier_changes_table = dynamodb.Table("pending_tier_changes")  # Create this table
+
+credits_for_tier = {
+    "free": 6,
+    "gold": 15,
+    "diamond": 50,
+}
+
 
 def create_user(
     email, password, tier, stripe_customer_id=None, is_google_account=False
 ):
-    match tier:
-        case "free":
-            exam_credits = 6
-        case "gold":
-            exam_credits = 15
-        case "diamond":
-            exam_credits = 50
     user_item = {
         "username": email,
         "stripe_customer_id": stripe_customer_id or "",
         "tier": tier,
         "exams": [],
-        "exam_credits": exam_credits,
+        "exam_credits": credits_for_tier.get(tier, 0),
         "is_google_account": is_google_account,
     }
     if not is_google_account:
@@ -71,7 +73,7 @@ def create_user(
     user_table.put_item(Item=user_item)
 
 
-def create_checkout_session(email, tier, user_id):
+def create_checkout_session(email, tier, reference_id, is_change_tier=False, credits=0):
     # Map subscription tiers to Stripe Price IDs
     price_ids = {
         "free": os.getenv("STRIPE_FREE_PRICE"),
@@ -80,6 +82,16 @@ def create_checkout_session(email, tier, user_id):
     }
     if tier not in price_ids:
         raise ValueError("Invalid subscription tier: " + tier)
+
+    # Set metadata to indicate whether it's a tier change
+    metadata = {}
+    if is_change_tier:
+        metadata["change_tier"] = "true"
+    else:
+        metadata["signup"] = "true"
+
+    if credits > 0:
+        metadata["credits"] = str(credits)
 
     session = stripe.checkout.Session.create(
         payment_method_types=["card"],
@@ -93,7 +105,8 @@ def create_checkout_session(email, tier, user_id):
         success_url=f"{os.getenv('FRONTEND_URL')}/payment-success",
         cancel_url=f"{os.getenv('FRONTEND_URL')}/payment-cancel",
         customer_email=email,
-        client_reference_id=user_id,  # Pass the unique user ID
+        client_reference_id=reference_id,  # Pass the unique reference ID
+        metadata=metadata,
     )
     return session
 
@@ -339,6 +352,7 @@ async def signup(data: dict):
             status_code=500, detail="Failed to create checkout session."
         )
 
+
 @app.post("/google-login")
 async def google_login(data: dict):
     token = data.get("token")
@@ -364,7 +378,6 @@ async def google_login(data: dict):
     except ValueError:
         # Invalid token
         raise HTTPException(status_code=400, detail="Invalid token")
-
 
 
 @app.post("/google-signup")
@@ -441,6 +454,58 @@ async def purchase_credits(data: dict):
         )
 
 
+@app.post("/change_tier")
+async def change_tier(data: dict):
+    username = data.get("username")
+    new_tier = data.get("tier")
+
+    if not username or not new_tier:
+        raise HTTPException(
+            status_code=400, detail="Username and new tier are required."
+        )
+
+    # Check if user exists
+    response = user_table.get_item(Key={"username": username})
+    if "Item" not in response:
+        raise HTTPException(status_code=400, detail="User not found.")
+
+    if new_tier == "free":
+        # Update user's tier immediately
+        user_table.update_item(
+            Key={"username": username},
+            UpdateExpression="SET tier = :new_tier",
+            ExpressionAttributeValues={":new_tier": new_tier},
+        )
+        return {"free": True}
+
+    # Generate a unique change ID
+    change_id = str(uuid.uuid4())
+
+    # Store pending tier change
+    pending_tier_changes_table.put_item(
+        Item={
+            "change_id": change_id,
+            "username": username,
+            "new_tier": new_tier,
+        }
+    )
+
+    # Create a new Stripe Checkout Session for the tier change
+    try:
+        # Create Checkout Session
+        session = create_checkout_session(
+            username, new_tier, change_id, is_change_tier=True, credits=credits_for_tier[new_tier]
+        )
+        return {"sessionId": session.id}
+    except Exception as e:
+        print(f"Error creating checkout session: {e}")
+        # Remove pending tier change if session creation fails
+        pending_tier_changes_table.delete_item(Key={"change_id": change_id})
+        raise HTTPException(
+            status_code=500, detail="Failed to create checkout session."
+        )
+
+
 @app.post("/webhook")
 async def stripe_webhook(request: Request):
     payload = await request.body()
@@ -462,37 +527,67 @@ async def stripe_webhook(request: Request):
         print(f"Checkout session completed: {session}")
 
         mode = session.get("mode")
+        metadata = session.get("metadata", {})
         if mode == "subscription":
-            # Retrieve the user ID
-            user_id = session.get("client_reference_id")
-            if not user_id:
-                print("No client_reference_id found.")
-                raise HTTPException(
-                    status_code=400, detail="No client_reference_id found."
+            if metadata.get("signup") == "true":
+                # Retrieve the user ID
+                user_id = session.get("client_reference_id")
+                if not user_id:
+                    print("No client_reference_id found.")
+                    raise HTTPException(
+                        status_code=400, detail="No client_reference_id found."
+                    )
+
+                # Retrieve user data from pending_users table
+                response = pending_user_table.get_item(Key={"user_id": user_id})
+                if "Item" not in response:
+                    print("Pending user data not found.")
+                    raise HTTPException(
+                        status_code=400, detail="Pending user data not found."
+                    )
+
+                user_data = response["Item"]
+
+                email = user_data["username"]
+                tier = user_data["tier"]
+                is_google_account = user_data.get("is_google_account", False)
+                stripe_customer_id = session.get("customer")
+
+                # Store user data in userbase table
+                create_user(email, "", tier, stripe_customer_id, is_google_account)
+                print(f"User {email} created in DynamoDB.")
+
+                # Delete pending user data
+                pending_user_table.delete_item(Key={"user_id": user_id})
+
+            elif metadata.get("change_tier") == "true":
+                # Handle tier change
+                change_id = session.get("client_reference_id")
+                credits = int(metadata.get("credits", 0))
+                # Retrieve pending tier change data
+                response = pending_tier_changes_table.get_item(
+                    Key={"change_id": change_id}
                 )
-
-            # Retrieve user data from pending_users table
-            response = pending_user_table.get_item(Key={"user_id": user_id})
-            if "Item" not in response:
-                print("Pending user data not found.")
-                raise HTTPException(
-                    status_code=400, detail="Pending user data not found."
+                if "Item" not in response:
+                    print("Pending tier change data not found.")
+                    raise HTTPException(
+                        status_code=400, detail="Pending tier change data not found."
+                    )
+                change_data = response["Item"]
+                username = change_data["username"]
+                new_tier = change_data["new_tier"]
+                # Update user's tier and credits in DynamoDB
+                user_table.update_item(
+                    Key={"username": username},
+                    UpdateExpression="SET tier = :new_tier, exam_credits = exam_credits + :credits",
+                    ExpressionAttributeValues={":new_tier": new_tier, ":credits": credits},
                 )
+                print(f"User {username} tier updated to {new_tier}.")
 
-            user_data = response["Item"]
-
-            email = user_data["username"]
-            tier = user_data["tier"]
-            is_google_account = user_data.get("is_google_account", False)
-            stripe_customer_id = session.get("customer")
-
-            # Store user data in userbase table
-            create_user(email, "", tier, stripe_customer_id, is_google_account)
-            print(f"User {email} created in DynamoDB.")
-
-            # Delete pending user data
-            pending_user_table.delete_item(Key={"user_id": user_id})
-
+                # Delete pending tier change data
+                pending_tier_changes_table.delete_item(Key={"change_id": change_id})
+            else:
+                print("Unknown subscription session.")
         elif mode == "payment":
             # Handle credits purchase
             metadata = session.get("metadata", {})
@@ -524,62 +619,43 @@ async def stripe_webhook(request: Request):
 
 @app.post("/grade_quiz")
 async def grade_quiz(payload: dict):
-    print(payload["username"])
-    print(payload["exam_id"])
-    print(payload["answers"])
-    print(payload)
+    username = payload["username"]
+    exam_id = payload["exam_id"]
+    answers = payload["answers"]
 
-    # test_response = {
-    #     "score": 3,
-    #     "total": 4,
-    #     "details": [
-    #         {
-    #             "correct_answer": "Paris",
-    #             "explanation": "Paris is the capital of France.",
-    #             "correct": True
-    #         },
-    #                     {
-    #             "correct_answer": "Paris",
-    #             "explanation": "Paris is the capital of France.",
-    #             "correct": False
-    #         }
-    #     ]
-    # }
-    # return test_response
-
-    response = user_table.get_item(Key={"username": payload["username"]})
+    # Fetch user data
+    response = user_table.get_item(Key={"username": username})
     item = response.get("Item")
     if item:
         exams = item.get("exams")
-        exam = exams[payload["exam_id"]]
+        exam = exams[exam_id]
         questions = exam["questions"]
         correct = 0
         total = len(questions)
         details = []
+        user_tier = item.get("tier", "free")
         for i, question in enumerate(questions):
-            answer = payload["answers"][str(i)]
+            answer = answers[str(i)]
+            is_correct = False
             if question["type"] == "mc":
-                correct += 1 if answer == question["correct_answer"] else 0
-                details.append(
-                    {
-                        "correct_answer": question["correct_answer"],
-                        "explanation": question["explanation"],
-                        "correct": answer == question["correct_answer"],
-                    }
-                )
+                is_correct = answer == question["correct_answer"]
             elif question["type"] == "oe":
-                isCorrect = isCorrectOpenEndedAnswer(
+                is_correct = isCorrectOpenEndedAnswer(
                     answer, question["correct_answer"], question["explanation"]
                 )
-                correct += 1 if isCorrect else 0
-                details.append(
-                    {
-                        "correct_answer": question["correct_answer"],
-                        "explanation": question["explanation"],
-                        "correct": isCorrect,
-                    }
-                )
-        response = {"score": correct, "total": total, "details": details}
+            if is_correct:
+                correct += 1
+            # Prepare detail based on user's tier
+            detail = {}
+            if user_tier in ["gold", "diamond"]:
+                detail["correct"] = is_correct
+                detail["correct_answer"] = question["correct_answer"]
+                if user_tier == "diamond":
+                    detail["explanation"] = question["explanation"]
+            details.append(detail)
+        response = {"score": correct, "total": total}
+        if user_tier in ["gold", "diamond"]:
+            response["details"] = details
         return response
     else:
         return {"message": "User not found"}

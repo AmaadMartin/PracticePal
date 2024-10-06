@@ -1,9 +1,8 @@
 // src/Components/Question.js
 import React from 'react';
-import { useEffect } from 'react';
 import './Question.css'; // Import the corresponding CSS file
 
-function Question({ question, index, onAnswerChange, currentAnswer, resultDetail }) {
+function Question({ question, index, onAnswerChange, currentAnswer, resultDetail, tier }) {
   const { question: questionText, type, answer_choices } = question;
 
   const handleChange = (e) => {
@@ -14,7 +13,8 @@ function Question({ question, index, onAnswerChange, currentAnswer, resultDetail
   // Determine the CSS class based on whether the answer is correct or incorrect
   let questionClass = 'question';
   let feedbackClass = 'feedback';
-  if (resultDetail) {
+
+  if (resultDetail && (tier === 'gold' || tier === 'diamond')) {
     if (resultDetail.correct === true) {
       questionClass += ' correct-answer';
       feedbackClass += ' correct-feedback';
@@ -61,7 +61,13 @@ function Question({ question, index, onAnswerChange, currentAnswer, resultDetail
               ></textarea>
             </div>
           )}
-      {resultDetail && (
+      {/* Display feedback based on tier */}
+      {resultDetail && tier === 'gold' && (
+        <div className={feedbackClass}>
+          <p><strong>Correct Answer:</strong> {resultDetail.correct_answer}</p>
+        </div>
+      )}
+      {resultDetail && tier === 'diamond' && (
         <div className={feedbackClass}>
           <p><strong>Correct Answer:</strong> {resultDetail.correct_answer}</p>
           <p><strong>Explanation:</strong> {resultDetail.explanation}</p>

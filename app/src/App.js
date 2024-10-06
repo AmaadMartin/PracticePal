@@ -9,6 +9,7 @@ import Login from './Components/Login';
 import ProtectedRoute from './Components/ProtectedRoute';
 import Signup from './Components/Signup';
 import PurchaseCredits from './Components/PurchaseCredits';
+import ChangeTier from './Components/ChangeTier'; // Import ChangeTier component
 import './App.css';
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
   const [examQuestions, setExamQuestions] = useState({});
   const [username, setUsername] = useState('');
   const [credits, setCredits] = useState(0);
+  const [tier, setTier] = useState(''); // Add tier state
 
   // Fetch user exams when username is set
   useEffect(() => {
@@ -34,6 +36,7 @@ function App() {
       const data = await response.json();
 
       setCredits(data.exam_credits);
+      setTier(data.tier); // Set the tier
 
       // Assuming the API returns data in the new format
       const userExams = data.exams.map((exam) => ({
@@ -73,6 +76,7 @@ function App() {
               setSelectedExam={setSelectedExam}
               selectedExam={selectedExam}
               credits={credits}
+              tier={tier} // Pass tier to Sidebar
             />
             <Routes>
               <Route
@@ -84,6 +88,7 @@ function App() {
                       examQuestions={examQuestions}
                       exams={exams}
                       username={username}
+                      tier={tier} // Pass tier to Exam
                     />
                   </ProtectedRoute>
                 }
@@ -111,18 +116,10 @@ function App() {
                 }
               />
               <Route
-                path="/payment-success"
+                path="/change-tier"
                 element={
                   <ProtectedRoute isAuthenticated={!!username}>
-                    <Login setUsername={setUsername} />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/payment-cancel"
-                element={
-                  <ProtectedRoute isAuthenticated={!!username}>
-                    <Login setUsername={setUsername} />
+                    <ChangeTier username={username} setTier={setTier} />
                   </ProtectedRoute>
                 }
               />
