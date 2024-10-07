@@ -10,7 +10,7 @@ load_dotenv()
 
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 
-QUERY_PROMPT = "Generate a new practice exam based on the inputted files."
+QUERY_PROMPT = """Generate a new practice exam for "{class_name}" taught at "{school}" on these topics "{topics}" and based on the inputted files."""
 
 model = "gpt-4o-mini"
 
@@ -75,24 +75,23 @@ class Agent:
                 },
                 {"type": "file_search"}
             ],
-            model=model,
-            temperature=1.2
+            model=model
         )
 
-    def create_conversation(self, files, past_exams):
+    def create_conversation(self, files, past_exams, class_name, school, topics):
         # print(files) 
         file_ids = self.add_files(files)
         messages = [
             {
                 "role": "user",
-                "content": QUERY_PROMPT.format(past_exams=past_exams),
+                "content": QUERY_PROMPT.format(class_name=class_name, school=school, topics=topics if topics != "" else "ANY"),
                 "attachments": [{"file_id": file_id, "tools": [{"type": "file_search"}]} for file_id in file_ids],
             }
         ]
         thread = self.client.beta.threads.create(messages=messages)
         return thread.id
 
-    def run_agent(self, query, threadId):
+    def run_agent(self, threadId):
         data = {
             "exam_name": "",
             "questions": []

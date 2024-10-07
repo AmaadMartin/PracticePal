@@ -247,7 +247,10 @@ async def create_exam(
         file_list = [(file.filename, file.file) for file in files]
 
     # Fetch additional materials based on class_name, school, and topics
-    additional_materials = await fetch_additional_materials(class_name, school, topics)
+    if class_name != "" or school != "" or topics != "":
+        additional_materials = await fetch_additional_materials(file_list, class_name, school, topics)
+    else:
+        additional_materials= []
     # print(f"Additional materials: {type(additional_materials[0][0]), type(additional_materials[0][1])}")
     # print(f"File List: {type(file_list[0][0]), type(file_list[0][1])}")
 
@@ -258,10 +261,9 @@ async def create_exam(
     # print("additional materials", [file for file, _ in additional_materials])
 
     # Create agent conversation with all materials
-    threadId = agent.create_conversation(all_materials, past_exams)
+    threadId = agent.create_conversation(all_materials, past_exams, class_name, school, topics)
     data = agent.run_agent(
-        "Can you make a practice exam based on these class materials? Try to search as many files as possible for relevant information.",
-        threadId,
+        threadId
     )
     agent.delete_thread(threadId)
 
@@ -291,7 +293,7 @@ async def create_exam(
     )
     return response
 
-async def fetch_additional_materials(class_name: str, school: str, topics: str) -> List[Tuple[str, bytes]]:
+async def fetch_additional_materials(files, class_name: str, school: str, topics: str) -> List[Tuple[str, bytes]]:
     # Function to generate multiple search queries using GPT-4o-mini
     # and fetch additional materials using Bing Web Search API
 
@@ -299,7 +301,7 @@ async def fetch_additional_materials(class_name: str, school: str, topics: str) 
         return []
 
     # Generate search queries using GPT-4o-mini
-    search_queries = generate_search_queries(class_name, school, topics)
+    search_queries = generate_search_queries(files, class_name, school, topics)
 
     # Limit the number of queries to avoid excessive API calls
     MAX_QUERIES = 3
@@ -353,10 +355,6 @@ async def fetch_additional_materials(class_name: str, school: str, topics: str) 
 
         downloaded_files = []
 
-        # Limit the number of files to download per query
-        MAX_FILES_PER_QUERY = 3
-        file_urls = file_urls[:MAX_FILES_PER_QUERY]
-
         async def download_file(session, url):
             try:
                 async with session.get(url) as response:
@@ -399,7 +397,7 @@ async def fetch_additional_materials(class_name: str, school: str, topics: str) 
     # Filter out irrelevant files
     additional_files = [additional_files[i] for i in relevant_files]
 
-    MAX_FILES = 5
+    MAX_FILES = 3 if len(files) == 0 else 1
     additional_files = additional_files[:MAX_FILES]
 
     print(f"Total additional files downloaded: {len(additional_files)}")

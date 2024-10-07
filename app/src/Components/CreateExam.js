@@ -10,7 +10,7 @@ function CreateExam({ username, setExams, setSelectedExam, setExamQuestions, set
   const [school, setSchool] = useState("");
   const [topics, setTopics] = useState("");
 
-  const MAX_FILES = 10;
+  const MAX_FILES = 5;
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -40,11 +40,6 @@ function CreateExam({ username, setExams, setSelectedExam, setExamQuestions, set
   };
 
   const handleFileUpload = async () => {
-    if (!className || !school || !topics) {
-      alert("Please fill in the class name, school, and topics.");
-      return;
-    }
-
     setIsUploading(true);
 
     // Prepare form data
@@ -133,7 +128,7 @@ function CreateExam({ username, setExams, setSelectedExam, setExamQuestions, set
       </div>
 
       <div className="input-group">
-        <label htmlFor="topics">Topics (comma-separated):</label>
+        <label htmlFor="topics">Topics:</label>
         <input
           type="text"
           id="topics"

@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import List
 import os
 import json
+import SearchQueryAgent
 
 # Initialize OpenAI client
 openai_client = OpenAI()
@@ -13,6 +14,8 @@ class SearchQueryResponseFormat(BaseModel):
 
 class RelevantFilesResponseFormat(BaseModel):
     relevant_files: List[int]
+
+search_query_agent = SearchQueryAgent.Agent()
 
 # Generate multiple search queries using GPT-4o-mini
 prompt = """
@@ -33,26 +36,17 @@ Given this list of files returned from these search queries to find lecture note
 Filenames: {files}
 Search queries: {search_queries}
 
-Remove any irrelevant files (Schedules, Syllabus, etc.) from the list and return the indices of the relevant files as a JSON array of integers.
+Remove any irrelevant files (Schedules, Syllabus, Different subject, Different school etc.) from the list and sort it from most relevant to least relevant indices as a JSON array of integers. Make sure all of the files kept are RELEVANT.
+** IF THE FILE IS NOT OBVIOUSLY RELEVANT REMOVE IT **
 """
 
-def generate_search_queries(class_name, school, topics):
-
-    # Generate search queries using GPT-4o-mini
-
-
-    response = openai_client.beta.chat.completions.parse(
-        messages=[{"role": "user", "content": prompt.format(class_name=class_name, school=school, topics=topics)}],
-        model="gpt-4o-mini",
-        max_tokens=200,
-        temperature=0.7,
-        response_format=SearchQueryResponseFormat
-    )
-
-    # Extract the generated search queries
-    search_queries = response.choices[0].message.parsed.search_queries
-
+def generate_search_queries(files, class_name, school, topics):
+    threadId = search_query_agent.create_conversation(files, class_name, school, topics)
+    data = search_query_agent.run_agent(threadId)
+    search_queries = data["search_queries"]
+    print("generate_search_queries", search_queries)
     return search_queries
+
 
 def filter_file_names(files, search_queries):
     response = openai_client.beta.chat.completions.parse(
