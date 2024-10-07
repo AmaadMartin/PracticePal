@@ -1,14 +1,16 @@
+# exam_maker_agent.py
+
 import os
 from openai import OpenAI
 import json
 from dotenv import load_dotenv
 from Prompt import prompt_instructions
-load_dotenv()
 
+load_dotenv()
 
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 
-QUERY_PROMPT = "Generate a practice exam based on these files."
+QUERY_PROMPT = "Generate a new practice exam based on the inputted files."
 
 model = "gpt-4o-mini"
 
@@ -18,54 +20,72 @@ class Agent:
         self.agent = self.client.beta.assistants.create(
             name="Exam Maker",
             instructions=prompt_instructions,
-            tools=[{"type": "code_interpreter"}, {
-                "type": "function",
-                "function": {
-
-                    "name": "createQuestion",
-                    "description": "Adds a Question to the exam given the question, the type of question, answer choices, and the correct answer",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "question": {"type": "string",
-                                         "description": "the actual question to be asked"},
-                            "type": {"type": "string",
-                                     "description": "the type of question to be asked (mc or oe) ONLY mc for multiple choice and oe for open ended are supported"},
-                            "answer_choices": {"type": "array",
-                                                "items": {"type": "string"},
-                                               "description": "the answer choices to be provided if the question is multiple choice"},
-                            "correct_answer": {"type": "string",
-                                               "description": "the correct answer to the question"},
-                            "answer_explanation": {"type": "string",
-                                                    "description": "an explanation of why the correct answer is correct"}
-                        },
-                        "required": ["question", "type", "correct_answer"]
+            tools=[
+                {"type": "code_interpreter"},
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "createQuestion",
+                        "description": "Adds a Question to the exam given the question, the type of question, answer choices, and the correct answer",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "question": {
+                                    "type": "string",
+                                    "description": "the actual question to be asked"
+                                },
+                                "type": {
+                                    "type": "string",
+                                    "description": "the type of question to be asked (mc or oe) ONLY mc for multiple choice and oe for open ended are supported"
+                                },
+                                "answer_choices": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "the answer choices to be provided if the question is multiple choice"
+                                },
+                                "correct_answer": {
+                                    "type": "string",
+                                    "description": "the correct answer to the question"
+                                },
+                                "answer_explanation": {
+                                    "type": "string",
+                                    "description": "an explanation of why the correct answer is correct"
+                                }
+                            },
+                            "required": ["question", "type", "correct_answer"]
+                        }
                     }
-                }
-            }, {"type": "function",
-                "function": {                   
-                    "name": "createExamName",
-                    "description": "Creates a name for the exam",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "exam_name": {"type": "string",
-                                         "description": "the name of the exam"}
-                        },
-                        "required": ["exam_name"]
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "createExamName",
+                        "description": "Creates a name for the exam",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "exam_name": {
+                                    "type": "string",
+                                    "description": "the name of the exam"
+                                }
+                            },
+                            "required": ["exam_name"]
+                        }
                     }
-                }
-            }
-            ,{"type": "file_search"}],
-            model=model
+                },
+                {"type": "file_search"}
+            ],
+            model=model,
+            temperature=1.2
         )
 
-    def create_conversation(self, files):
+    def create_conversation(self, files, past_exams):
+        # print(files) 
         file_ids = self.add_files(files)
         messages = [
             {
                 "role": "user",
-                "content": QUERY_PROMPT,
+                "content": QUERY_PROMPT.format(past_exams=past_exams),
                 "attachments": [{"file_id": file_id, "tools": [{"type": "file_search"}]} for file_id in file_ids],
             }
         ]
@@ -85,7 +105,7 @@ class Agent:
         )
 
         # retrieve status of run
-        while run.status == "queued" or run.status == "in_progress" or run.status == "requires_action":
+        while run.status in ["queued", "in_progress", "requires_action"]:
             run = self.client.beta.threads.runs.retrieve(
                 thread_id=threadId,
                 run_id=run.id
@@ -101,7 +121,7 @@ class Agent:
                             if toolCall.function.arguments:
                                 args = json.loads(toolCall.function.arguments)
                                 print(args)
-                                if args["type"] == "mc" :
+                                if args["type"] == "mc":
                                     data["questions"].append({
                                         "question": args["question"],
                                         "type": args["type"],
@@ -158,24 +178,18 @@ class Agent:
         )
 
         messages = list(map(lambda x: {"role": x.role, "value": x.content[0].text.value}, messages.data))
-        print(messages)
+        print(data)
 
         return data
 
     def delete_thread(self, threadId):
         self.client.beta.threads.delete(threadId) 
 
-    def process_files(self):
-        file_ids = []
-        for filename in os.listdir("files"):
-            with open(f"files/{filename}", "rb") as file:
-                file = self.client.files.create(file=file, purpose="assistants")
-                file_ids.append(file.id)
-        return file_ids
-
     def add_files(self, files):
         file_ids = []
         for file in files:
-            file = self.client.files.create(file=file, purpose="assistants")
-            file_ids.append(file.id)
+            # print(filename)
+            # print(file_obj)
+            file_response = self.client.files.create(file=file, purpose="assistants")
+            file_ids.append(file_response.id)
         return file_ids

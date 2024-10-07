@@ -9,3 +9,6 @@ stripe
 python-dotenv
 mangum
 google-auth
+typing
+aiohttp
+asyncio

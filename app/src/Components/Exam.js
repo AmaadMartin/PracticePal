@@ -80,13 +80,6 @@ function Exam({ selectedExam, examQuestions, exams, username, tier }) {
   return (
     <div className="exam-content">
       <h1>{examName}</h1>
-      {result && (
-        <div className="result-summary">
-          <h2>
-            Score: {result.score} / {result.total}
-          </h2>
-        </div>
-      )}
       {questions.map((question, index) => (
         <Question
           key={index}
@@ -106,6 +99,13 @@ function Exam({ selectedExam, examQuestions, exams, username, tier }) {
         >
           {isSubmitting ? "Submitting..." : "Submit"}
         </button>
+      )}
+      {result && (
+        <div className="result-summary">
+          <h2>
+            Score: {result.score} / {result.total}
+          </h2>
+        </div>
       )}
     </div>
   );

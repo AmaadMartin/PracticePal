@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Request, HTTPException
+from fastapi import FastAPI, UploadFile, File, Request, HTTPException, Form
 import uvicorn
 from exam_maker_agent import Agent
 import tempfile
@@ -15,6 +15,12 @@ import uuid
 from mangum import Mangum
 from google.oauth2 import id_token
 from google.auth.transport import requests
+import requests as http_requests  # Renamed to avoid conflict with FastAPI's requests
+import json
+from typing import List, Tuple
+import aiohttp  # Added for asynchronous HTTP requests
+import asyncio  # Added for asynchronous operations
+from SearchQueryGenerator import generate_search_queries, filter_file_names
 
 load_dotenv()
 
@@ -51,7 +57,7 @@ pending_user_table = dynamodb.Table("pending_users")  # Create this table
 pending_tier_changes_table = dynamodb.Table("pending_tier_changes")  # Create this table
 
 credits_for_tier = {
-    "free": 6,
+    "free": 4,
     "gold": 15,
     "diamond": 50,
 }
@@ -204,17 +210,24 @@ def test_create_exam_response(user_id):
 
 
 @app.post("/create_exam/{user_id}")
-async def create_exam(files: list[UploadFile] = File(...), user_id: str = None):
+async def create_exam(
+    files: List[UploadFile] = File(default=None),
+    user_id: str = None,
+    class_name: str = Form(default=None),
+    school: str = Form(default=None),
+    topics: str = Form(default=None),
+):
+
     # get number of exams user has to get an id
     response = user_table.get_item(Key={"username": user_id})
     item = response.get("Item")
     if item:
-        # check if user has atleast 1 exam credit or is not a free user to create an exam
+        # check if user has at least 1 exam credit or is not a free user to create an exam
         exam_credits = item.get("exam_credits")
         print("exam_credits", exam_credits)
         if exam_credits < 1:
             return {
-                "message": "You do not have enough exam credits. They will reset next sunday."
+                "message": "You do not have enough exam credits. They will reset next Sunday."
             }
 
         # decrement exam credits
@@ -223,13 +236,29 @@ async def create_exam(files: list[UploadFile] = File(...), user_id: str = None):
             UpdateExpression="SET exam_credits = exam_credits - :val",
             ExpressionAttributeValues={":val": 1},
         )
+        past_exams = item.get("exams")
 
     if os.getenv("ENV") == "dev":
         return test_create_exam_response(user_id)
 
-    # convert files to list of file objects while keeping their extensions
-    files = [(file.filename, file.file) for file in files]
-    threadId = agent.create_conversation(files)
+    # Process files
+    file_list = []
+    if files:
+        file_list = [(file.filename, file.file) for file in files]
+
+    # Fetch additional materials based on class_name, school, and topics
+    additional_materials = await fetch_additional_materials(class_name, school, topics)
+    # print(f"Additional materials: {type(additional_materials[0][0]), type(additional_materials[0][1])}")
+    # print(f"File List: {type(file_list[0][0]), type(file_list[0][1])}")
+
+
+    # Combine files and additional materials
+    all_materials = file_list + additional_materials
+    # print("file list", [file.filename for file in files])
+    # print("additional materials", [file for file, _ in additional_materials])
+
+    # Create agent conversation with all materials
+    threadId = agent.create_conversation(all_materials, past_exams)
     data = agent.run_agent(
         "Can you make a practice exam based on these class materials? Try to search as many files as possible for relevant information.",
         threadId,
@@ -251,7 +280,7 @@ async def create_exam(files: list[UploadFile] = File(...), user_id: str = None):
         "message": "success",
     }
 
-    # add response to database for user in exams field and decrement exam credits
+    # add response to database for user in exams field
     user_table.update_item(
         Key={"username": user_id},
         UpdateExpression="SET exams = list_append(if_not_exists(exams, :empty_list), :response)",
@@ -262,6 +291,120 @@ async def create_exam(files: list[UploadFile] = File(...), user_id: str = None):
     )
     return response
 
+async def fetch_additional_materials(class_name: str, school: str, topics: str) -> List[Tuple[str, bytes]]:
+    # Function to generate multiple search queries using GPT-4o-mini
+    # and fetch additional materials using Bing Web Search API
+
+    if not class_name and not school and not topics:
+        return []
+
+    # Generate search queries using GPT-4o-mini
+    search_queries = generate_search_queries(class_name, school, topics)
+
+    # Limit the number of queries to avoid excessive API calls
+    MAX_QUERIES = 3
+    search_queries = search_queries[:MAX_QUERIES]
+
+    print(f"Generated search queries: {search_queries}")
+
+    additional_files = []
+
+    # Set up Bing Search API credentials
+    api_key = os.getenv("BING_SEARCH_API_KEY")
+    if not api_key:
+        print("Bing Search API key not found.")
+        return []
+
+    endpoint = "https://api.bing.microsoft.com/v7.0/search"
+    headers = {"Ocp-Apim-Subscription-Key": api_key}
+
+    # Download files asynchronously
+    async def fetch_and_download(session, query):
+        params = {
+            "q": query,
+            "responseFilter": "Webpages",
+            "count": "10",
+            "offset": "0",
+            "mkt": "en-US",
+            "textDecorations": "true",
+            "textFormat": "HTML",
+        }
+        try:
+            async with session.get(endpoint, headers=headers, params=params) as resp:
+                if resp.status != 200:
+                    print(f"Bing Search API request failed with status code {resp.status}")
+                    print(await resp.text())  # Print error message from Bing API
+                    return []
+                search_results = await resp.json()
+        except Exception as e:
+            print(f"Exception during Bing API request: {e}")
+            return []
+
+        # Extract URLs from search results
+        webpages = search_results.get("webPages", {}).get("value", [])
+        file_urls = [page.get("url") for page in webpages if page.get("url")]
+
+        # Filter URLs for downloadable files
+        file_urls = [
+            url for url in file_urls if url.lower().endswith(('.pdf', '.ppt', '.pptx', '.doc', '.docx'))
+        ]
+
+        print(f"Found {len(file_urls)} files to download for query: '{query}'")
+
+        downloaded_files = []
+
+        # Limit the number of files to download per query
+        MAX_FILES_PER_QUERY = 3
+        file_urls = file_urls[:MAX_FILES_PER_QUERY]
+
+        async def download_file(session, url):
+            try:
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        content = await response.read()
+                        filename = url.split("/")[-1].split("?")[0]
+                        print(f"Downloaded {filename}")
+                        return (filename, content)
+                    else:
+                        print(f"Failed to download {url}, status code {response.status}")
+                        return None
+            except Exception as e:
+                print(f"Exception while downloading {url}: {e}")
+                return None
+
+        tasks = []
+        for url in file_urls:
+            tasks.append(download_file(session, url))
+        files = await asyncio.gather(*tasks)
+
+        # Filter out None results
+        for file in files:
+            if file:
+                downloaded_files.append(file)
+
+        return downloaded_files
+
+    async with aiohttp.ClientSession() as session:
+        tasks = []
+        for query in search_queries:
+            tasks.append(fetch_and_download(session, query))
+        results = await asyncio.gather(*tasks)
+
+    # Aggregate all downloaded files
+    for files in results:
+        additional_files.extend(files)
+
+    relevant_files = filter_file_names([file[0] for file in additional_files], search_queries)
+
+    # Filter out irrelevant files
+    additional_files = [additional_files[i] for i in relevant_files]
+
+    MAX_FILES = 5
+    additional_files = additional_files[:MAX_FILES]
+
+    print(f"Total additional files downloaded: {len(additional_files)}")
+
+    return additional_files
 
 @app.get("/users/{user_id}")
 async def read_user(user_id: str):
