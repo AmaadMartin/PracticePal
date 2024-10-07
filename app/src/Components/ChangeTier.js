@@ -14,14 +14,14 @@ function ChangeTier({ username, setTier }) {
       value: "free",
       label: "Free",
       price: "Free",
-      features: ["4 exams a week"],
+      features: ["2 exams per week"],
     },
     {
       value: "gold",
       label: "Gold Supporter",
       price: "$4.99/month",
       features: [
-        "15 exams per week",
+        "6 exams per week",
         "Automated Grading",
       ],
     },
@@ -30,7 +30,7 @@ function ChangeTier({ username, setTier }) {
       label: "Diamond Supporter",
       price: "$9.99/month",
       features: [
-        "50 exams per week",
+        "15 exams per week",
         "Automated Grading",
         "Detailed Answer Analysis and Explanations",
       ],

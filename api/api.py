@@ -57,9 +57,9 @@ pending_user_table = dynamodb.Table("pending_users")  # Create this table
 pending_tier_changes_table = dynamodb.Table("pending_tier_changes")  # Create this table
 
 credits_for_tier = {
-    "free": 4,
-    "gold": 15,
-    "diamond": 50,
+    "free": 2,
+    "gold": 6,
+    "diamond": 15,
 }
 
 
