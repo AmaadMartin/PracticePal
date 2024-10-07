@@ -107,6 +107,14 @@ function Exam({ selectedExam, examQuestions, exams, username, tier }) {
           </h2>
         </div>
       )}
+      {/* If user is free tell them to upgrade to see questions answers */}
+      {result && tier === "free" && (
+        <div className="upgrade-message">
+          <p>
+            Upgrade to see the correct answers for each question.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

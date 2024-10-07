@@ -397,7 +397,7 @@ async def fetch_additional_materials(files, class_name: str, school: str, topics
     # Filter out irrelevant files
     additional_files = [additional_files[i] for i in relevant_files]
 
-    MAX_FILES = 3 if len(files) == 0 else 1
+    MAX_FILES = 3 if len(files) == 0 else 0
     additional_files = additional_files[:MAX_FILES]
 
     print(f"Total additional files downloaded: {len(additional_files)}")

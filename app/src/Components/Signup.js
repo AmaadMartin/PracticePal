@@ -22,12 +22,12 @@ function Signup() {
       value: "free",
       label: "Free",
       price: "Free",
-      features: ["6 exams a week"],
+      features: ["4 exams a week"],
     },
     {
       value: "gold",
       label: "Gold Supporter",
-      price: "$8.99/month",
+      price: "$4.99/month",
       features: [
         "15 exams per week",
         "Automated Grading",
@@ -36,7 +36,7 @@ function Signup() {
     {
       value: "diamond",
       label: "Diamond Supporter",
-      price: "$18.99/month",
+      price: "$9.99/month",
       features: [
         "50 exams per week",
         "Automated Grading",
