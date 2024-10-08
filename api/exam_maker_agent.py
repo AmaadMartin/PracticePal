@@ -75,7 +75,8 @@ class Agent:
                 },
                 {"type": "file_search"}
             ],
-            model=model
+            model=model,
+            temperature=1.1
         )
 
     def create_conversation(self, files, past_exams, class_name, school, topics):

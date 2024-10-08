@@ -10,7 +10,7 @@ function CreateExam({ username, setExams, setSelectedExam, setExamQuestions, set
   const [school, setSchool] = useState("");
   const [topics, setTopics] = useState("");
 
-  const MAX_FILES = 5;
+  const MAX_FILES = 7;
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -128,7 +128,7 @@ function CreateExam({ username, setExams, setSelectedExam, setExamQuestions, set
       </div>
 
       <div className="input-group">
-        <label htmlFor="topics">Topics:</label>
+        <label htmlFor="topics">(Optional) Topics:</label>
         <input
           type="text"
           id="topics"
@@ -165,7 +165,7 @@ function CreateExam({ username, setExams, setSelectedExam, setExamQuestions, set
         disabled={isUploading}
         className="upload-button"
       >
-        {isUploading ? "Creating Exam..." : "Create Exam"}
+        {isUploading ? "Creating Exam... (Could take several minutes)" : "Create Exam"}
       </button>
     </div>
   );
