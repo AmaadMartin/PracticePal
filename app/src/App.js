@@ -36,7 +36,13 @@ function App() {
       const data = await response.json();
 
       setCredits(data.exam_credits);
-      setTier(data.tier); // Set the tier
+      // if tier is gold or diamond set tier to premium
+      if (data.tier === 'gold' || data.tier === 'diamond') {
+        setTier('premium');
+      }
+      else {
+        setTier('free');
+      }
 
       // Assuming the API returns data in the new format
       const userExams = data.exams.map((exam) => ({

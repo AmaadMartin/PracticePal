@@ -18,21 +18,22 @@ function ChangeTier({ username, setTier }) {
     },
     {
       value: "gold",
-      label: "Gold Supporter",
-      price: "$4.99/month",
+      label: "Weekly Plan",
+      price: "$4.99/week",
       features: [
         "6 exams per week",
         "Automated Grading",
+        "Cancel anytime",
       ],
     },
     {
       value: "diamond",
-      label: "Diamond Supporter",
+      label: "Monthly Plan",
       price: "$9.99/month",
       features: [
-        "15 exams per week",
+        "6 exams per week",
         "Automated Grading",
-        "Detailed Answer Analysis and Explanations",
+        "Cancel anytime",
       ],
     },
   ];
