@@ -247,7 +247,8 @@ async def create_exam(
         file_list = [(file.filename, file.file) for file in files]
 
     # Fetch additional materials based on class_name, school, and topics
-    if class_name != "" or school != "" or topics != "":
+    
+    if (class_name != "" or school != "" or topics != "") and len(file_list) == 0:
         additional_materials = await fetch_additional_materials(file_list, class_name, school, topics)
     else:
         additional_materials= []
